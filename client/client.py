@@ -6,6 +6,11 @@ SERVER_IP = '192.168.0.107'
 ID = 1
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+def send_message(server, message):
+    try:
+        server.send(message.encode('utf-8'))
+    except socket.error as e:
+        print(f"Failed to send message: {e}")
 
 def execute_task(data):
     print(data.data)
@@ -17,7 +22,8 @@ def execute_task(data):
         "data": result,
         "task_id": data.task_id
     })
-    server.send(message.encode('utf-8'))
+    # server.send(message.encode('utf-8'))
+    send_message(server, message)
 
 
 def recieve_message(server):
@@ -27,7 +33,7 @@ def recieve_message(server):
             if not data:
                 break
             data = json.loads(data.decode('utf-8'))
-            if data.type == "execute":
+            if data.type == "task":
                 # print(data.data)
                 execute_task(data)
             elif data.type == "result":
@@ -40,10 +46,11 @@ def send_message(server):
         input("Press Enter to send a message to the server... \n")
         message = json.dumps({
             "client_id": ID,
-            "type": "execute", # execute, result
+            "type": "task", # execute, result
             "data": "Hello from client"
         })
-        server.send(message.encode('utf-8'))
+        # server.send(message.encode('utf-8'))
+        send_message(server, message)
 
 
 def main():    
