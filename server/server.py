@@ -18,7 +18,7 @@ class Server:
     def client_handler(self, client_socket, client_address):
         tasks = queue.Queue()
         results = queue.Queue()
-
+        length = 0
         def distribute_task(tasks):
             while True:
                 if tasks.empty():
@@ -26,6 +26,7 @@ class Server:
                 task = tasks.get()
                 words = task["data"].split()
                 for i, word in enumerate(words):
+                    length += 1
                     data = json.dumps({
                         "client_id" : task["client_id"],
                         "task_id" : i,
@@ -39,12 +40,22 @@ class Server:
                             break
                     
         
-        def gather_result():
+        def gather_result(results):
             while True:
                 if results.empty():
                     continue
                 result = results.get()
-                result = json.loads(result.decode())
+                data = json.dumps({
+                    "client_id" : result["client_id"],
+                    "task_id" : result["task_id"],
+                    "type" : result["type"],
+                    "data" : result["data"]
+                })
+                for client_index, client in enumerate(self.clients):
+                    if self.status[client_index] == "busy" and result["client_id"] == client_index:
+                        client.send(data.encode())
+                        self.status[client_index] = "idle"
+                        break
         
         task_distribution_thread = Thread(target=distribute_task, args=(tasks,))
         task_distribution_thread.start()
@@ -57,7 +68,13 @@ class Server:
             if not data:
                 continue
             print("Received data from " + str(client_address) + ": " + data.decode())
-            tasks.put(json.loads(data.decode()))
+            # tasks.put(json.loads(data.decode()))
+            data = json.loads(data.decode())
+            if data["type"] == "task":
+                tasks.put(data)
+            elif data["type"] == "result":
+                results.put(data)
+                self.status[data["client_id"]] = "idle"
     
     def accept_client(self):
         client_socket, client_address = self.socket.accept()
