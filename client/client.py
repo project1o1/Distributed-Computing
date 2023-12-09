@@ -1,5 +1,6 @@
 import socket
 import json
+
 class Client:
     def __init__(self, IP, port, ID):
         self.IP = IP
