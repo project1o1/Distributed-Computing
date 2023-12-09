@@ -1,65 +1,108 @@
 import socket
-import threading
 import json
-import time
+class Client:
+    def __init__(self, IP, port, ID):
+        self.IP = IP
+        self.port = port
+        self.ID = ID
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.connect((self.IP, self.port))
 
-SERVER_IP = '127.0.0.1'
-ID = 1
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-def send_message(server, message):
-    try:
-        server.send(message.encode('utf-8'))
-    except socket.error as e:
-        print(f"Failed to send message: {e}")
-
-def execute_task(data):
-    print(data["data"])
-    result = data["data"].upper()
-    message = json.dumps({
-        "client_id": ID,
-        "type": "result",
-        "data": result,
-        "task_id": data["task_id"]
-    })
-    send_message(server, message)
-
-
-def receive_message(server):
-    while True:
+    def send_message(self,message):
         try:
-            data = server.recv(1024)
+            self.server.send(message.encode('utf-8'))
+        except socket.error as e:
+            print(f"[ERROR] Failed to send message: {e}")
+
+    def recv(self):
+        return self.server.recv(1024).decode()
+
+    def close(self):
+        self.server.close()
+
+    def __del__(self):
+        self.close()
+
+    def receive_message(self):
+        try:
+            data = self.server.recv(1024)
             if not data:
-                break
+                return None
             data = json.loads(data.decode('utf-8'))
-            if data["type"] == "task":
-                execute_task(data)
-            elif data["type"] == "result":
-                # print("Result" +data["data"])
-                print("Result from client " + str(data["client_id"]) + ": " + data["data"])
+            return data
         except socket.error:
-            break
+            print("[ERROR] Failed to receive message")
+            return None
 
-def send_message_server(server):
-    while True:
-        # input("Press Enter to send a message to the server... \n")
-        # wait for 10ms
-        time.sleep(1)
 
-        message = json.dumps({
-            "client_id": ID,
-            "type": "task",
-            "data": "Hello from client"
-        })
-        send_message(server, message)
+class Commander(Client):
+    def __init__(self, server, port, ID):
+        super().__init__(server, port, ID)
+        self.type = "commander"
+        self.send_message(json.dumps({
+            "message_type": "connection",
+            "client_id": self.ID,
+            "type": self.type
+        }))
 
-def main():
-    server.connect((SERVER_IP, 5000))
-    recieve_thread = threading.Thread(target=receive_message, args=(server,))
-    recieve_thread.start()
+    def command(self, command):
+        try:
+            self.send_message(json.dumps({
+                "message_type": "command",
+                "client_id": self.ID,
+                "command": command
+            }))
 
-    send_thread = threading.Thread(target=send_message_server, args=(server,))
-    send_thread.start()
+            data = self.receive_message()
+            if data["message_type"] == "result":
+                return data
+            else:
+                print("[ERROR] Failed to receive result")
+                print("[INFO] Retrying...")
+                return self.command(self.ID, command)
 
-if __name__ == '__main__':
-    main()
+        except socket.error:
+            print("[ERROR] Failed to send command")
+            return None
+        
+
+class Soldier(Client):
+    def __init__(self, server, port, ID):
+        super().__init__(server, port, ID)
+        self.type = "soldier"
+        self.send_message(json.dumps({
+            "message_type": "connection",
+            "client_id": self.ID,
+            "type": self.type
+        }))
+        self.task = None
+
+    def receive_orders(self):
+        try:
+            data = self.receive_message()
+            if data["message_type"] == "command":
+                self.task = data
+                # return data
+                return self.obey(data)
+            else:
+                print("[ERROR] Failed to receive command")
+                print("[INFO] Retrying...")
+                return self.receive_orders()
+
+        except socket.error:
+            print("[ERROR] Failed to receive command")
+            return None
+
+    def obey(self, task):
+        try:
+            result = task["task"].upper()
+            self.send_message(json.dumps({
+                "message_type": "result",
+                "client_id": task["client_id"],
+                "result": result,
+                "task_id": task["task_id"]
+            }))
+            return task["task_id"]
+        except socket.error:
+            print("[ERROR] Failed to send result")
+            return None
