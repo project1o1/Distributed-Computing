@@ -166,7 +166,7 @@ class Soldier(Client):
 
             # self.send_message(json.dumps({
             #     "message_type": "result",
-            #     "client_id": task["client_id"],
+            #     "client_id": task["client_id"],   
             #     "result": result,
             #     "task_id": task["task_id"]
             # }))

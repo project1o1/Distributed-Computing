@@ -5,8 +5,8 @@ import numpy as np
 import pickle
 import json
 import base64
-# IP = '192.168.0.101'
-IP = '127.0.0.1'
+IP = '192.168.0.100'
+# IP = '127.0.0.1'
 PORT = 5000
 ID = hashlib.md5(str(time.time()).encode('utf-8')).hexdigest()
 

@@ -1,7 +1,7 @@
 import socket
 import queue
 import json
-from threading import Thread
+from threading import Thread, Lock
 import sys
 import time
 
@@ -14,12 +14,13 @@ class General:
 
         # self.clients = []
         self.commanders = {}
-        self.soldiers = {}
-        self.status = {}
         self.metadata = {}
         self.results = {}
+        self.commanders_lock = {}
+
+        self.soldiers = {}
+        self.status = {}
         # self.tasks = queue.Queue()
-        # self.tasks_lock = Lock()
 
     def handle_commander(self, client_id, client_socket):
         tasks = queue.Queue()
@@ -71,31 +72,6 @@ class General:
                     "length": tasks.qsize(),
                 }
 
-                # Assign tasks to available soldiers
-                # for task_id in range(tasks.qsize()):
-                # num_tasks = tasks.qsize()
-                # task_id = 0
-                # num_tasks = tasks.qsize()
-                # while task_id <= num_tasks:
-                #     # assigned = False
-                #     for soldier_id, soldier_status in self.status.items():
-                #         if soldier_status == "idle":
-                #             task = tasks.get()
-                #             self.status[soldier_id] = "busy"
-                #             command = json.dumps({
-                #                 "message_type": "command",
-                #                 "client_id": client_id,
-                #                 "task_id": task_id,
-                #                 "task": task[1]
-                #             }).encode('utf-8')
-                #             self.soldiers[soldier_id].send(str(sys.getsizeof(command)).encode('utf-8'))
-                #             time.sleep(0.1)
-                #             self.soldiers[soldier_id].send(command)
-                #             # assigned = True
-                #             task_id += 1
-                #             break
-                    # if not assigned:
-                    #     tasks.put(task)  # Re-queue the task for later
                 length = len(self.soldiers)
                 soldier_ids = list(self.status.keys())
                 num_tasks = tasks.qsize()
@@ -124,10 +100,7 @@ class General:
 
     def handle_soldier(self, client_id, client_socket):
         while True:
-            # data = client_socket.recv(1024).decode('utf-8')
             size = client_socket.recv(1024).decode('utf-8')
-            # size = json.loads(size)
-            # print('Size for soldier: ', size)
             size = int(size)
             data = bytearray()
             while size - len(data) >= 1024:
@@ -140,44 +113,37 @@ class General:
                 if not packet:
                     break
                 data += packet
-            print('Size from soldier: ', len(data))
             # print(self.metadata)
             # print(self.status)
             data = json.loads(data)
+            print('Size from soldier: ', data["task_id"], size)
             if data["message_type"] == "result":
                 c_id = data["client_id"]
                 self.status[client_id] = "idle"
-                if c_id not in self.results:
-                    self.results[c_id] = []
-                self.results[c_id].append(data)
-                # time.sleep(0.1)
-                if len(self.results[c_id]) == self.metadata[c_id]["length"]:
-                    self.results[c_id].sort(key=lambda x: x["task_id"])
-                    print("[INFO] Received all results from soldier "+str(client_id))
-                    final_result = [
-                        [result["result"][0] for result in self.results[c_id]],
-                        [result["result"][1] for result in self.results[c_id]],
-                    ]
-                    print("[INFO] Sending final result to commander "+str(c_id)+"...")
+                with self.commanders_lock[c_id]:
+                    if c_id not in self.results:
+                        self.results[c_id] = []
+                    self.results[c_id].append(data)
+                    # time.sleep(0.1)
+                    if len(self.results[c_id]) == self.metadata[c_id]["length"]:
+                        self.results[c_id].sort(key=lambda x: x["task_id"])
+                        print("[INFO] Received all results from soldier "+str(client_id))
+                        final_result = [
+                            [result["result"][0] for result in self.results[c_id]],
+                            [result["result"][1] for result in self.results[c_id]],
+                        ]
+                        print("[INFO] Sending final result to commander "+str(c_id)+"...")
 
-                    # self.commanders[client_id].send(json.dumps({
-                    #     "message_type": "result",
-                    #     "client_id": client_id,
-                    #     "results": final_result
-                    # }).encode('utf-8'))
-                    
-                    # print(final_result)
-
-                    message = json.dumps({
-                        "message_type": "result",
-                        "client_id": c_id,
-                        "results": final_result
-                    }).encode('utf-8')
-                    self.commanders[c_id].send(str(sys.getsizeof(message)).encode('utf-8'))
-                    time.sleep(0.1)
-                    self.commanders[c_id].send(message)
-                    self.results[c_id] = []
-                    del self.metadata[c_id]
+                        message = json.dumps({
+                            "message_type": "result",
+                            "client_id": c_id,
+                            "results": final_result
+                        }).encode('utf-8')
+                        self.commanders[c_id].send(str(sys.getsizeof(message)).encode('utf-8'))
+                        time.sleep(0.1)
+                        self.commanders[c_id].send(message)
+                        self.results[c_id] = []
+                        del self.metadata[c_id]
     
 
     def accept_client(self):
@@ -191,6 +157,7 @@ class General:
             if client_type == "commander":
                 print(f'[INFO] New commander: {client_address}')
                 self.commanders[client_id] = client_socket
+                self.commanders_lock[client_id] = Lock()
                 thread = Thread(target=self.handle_commander, args=(client_id, client_socket))
                 thread.start()
             elif client_type == "soldier":
