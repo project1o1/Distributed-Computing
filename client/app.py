@@ -13,9 +13,10 @@ ID = hashlib.md5(str(time.time()).encode('utf-8')).hexdigest()
 
 # num_balls, max_initial_height, num_steps, damping_factor, dt
 def simulate_bouncing_balls_normal(**kwargs):
-    print("kwargs: ", kwargs)
-    num_balls = kwargs["num_balls"]
-    max_initial_height = kwargs["max_initial_height"]
+    import numpy as np
+    # print("kwargs: ", kwargs)
+    # num_balls = kwargs["num_balls"]
+    # max_initial_height = kwargs["max_initial_height"]
     num_steps = kwargs["num_steps"]
     damping_factor = kwargs["damping_factor"]
     dt = kwargs["dt"]
@@ -45,8 +46,10 @@ def simulate_bouncing_balls_normal(**kwargs):
         time_steps.append(np.arange(num_steps) * dt)
         heights_list.append(heights)
 
-    heights_list = [heights.tolist() for heights in heights_list]
+    # heights_list = [heights.tolist() for heights in heights_list]
     time_steps = [time_step.tolist() for time_step in time_steps]
+
+    # heights_list = heights_list.tolist()
 
     return [time_steps, heights_list]
 
