@@ -20,20 +20,21 @@ class General:
         # self.tasks_lock = Lock()
 
     def handle_commander(self, client_id, client_socket):
-        tasks = []
+        tasks = queue.Queue()
         while True:
             data = client_socket.recv(1024).decode('utf-8')
             if not data:
                 break
             data = json.loads(data)
             if data["message_type"] == "command":
-                tasks.extend((i, word) for i,word in enumerate(data["command"].split()))
+                for i, word in enumerate(data["command"].split()):
+                    tasks.put((i, word))
                 self.metadata[data["client_id"]] = {
-                    "length" : len(tasks),
+                    "length" : tasks.qsize(),
                 }
-                for task in tasks:
+                for j in range(tasks.qsize()):
                     i = 0
-
+                    task = tasks.get()
                     while i < len(self.status):
                         c_id = list(self.status.keys())[i]
                         if self.status[c_id] == "idle":
@@ -48,7 +49,6 @@ class General:
                         i += 1
                         if i == len(self.status):
                             i = 0
-                tasks = []
     
     def handle_soldier(self, client_id, client_socket):
         while True:
