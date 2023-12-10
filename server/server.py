@@ -1,7 +1,8 @@
 import socket
 import queue
 import json
-from threading import Thread, Lock
+from threading import Thread
+import sys
 
 class General:
     def __init__(self, ip, port):
@@ -23,15 +24,29 @@ class General:
         tasks = queue.Queue()
         while True:
             # data = client_socket.recv(1024).decode('utf-8')
+            size = client_socket.recv(1024).decode('utf-8')
+            size = json.loads(size)
+            size = int(size)
+            print('Size for commander: ', size)
             data = bytearray()
-            while True:
+            while size - len(data) >= 1024:
                 packet = client_socket.recv(1024)
                 if not packet:
                     break
                 data += packet
-            if not data:
-                break
+            if size - len(data) > 0:
+                packet = client_socket.recv(size-len(data))
+                if not packet:
+                    break
+                data += packet
+            # print('Size of data: ', len(data))
+            # print(type(data))
+            data = data.decode('utf-8')
+            # print(type(data))
             data = json.loads(data)
+            # print(type(data))
+            data = json.loads(data)
+            # print(type(data))
             if data["message_type"] == "command":
                 initial_heights = data["command"]["initial_heights"]
                 split_parts = 10
@@ -60,12 +75,14 @@ class General:
                     for soldier_id, soldier_status in self.status.items():
                         if soldier_status == "idle":
                             self.status[soldier_id] = "busy"
-                            self.soldiers[soldier_id].send(json.dumps({
+                            command = json.dumps({
                                 "message_type": "command",
                                 "client_id": client_id,
                                 "task_id": task_id,
                                 "task": tasks.get()[1]
-                            }).encode('utf-8'))
+                            })
+                            self.soldiers[soldier_id].send(json.dumps(sys.getsizeof(command)).encode('utf-8'))
+                            self.soldiers[soldier_id].send(command.encode('utf-8'))
                             assigned = True
                             break
                     if not assigned:
@@ -74,14 +91,22 @@ class General:
     def handle_soldier(self, client_id, client_socket):
         while True:
             # data = client_socket.recv(1024).decode('utf-8')
+            size = client_socket.recv(1024).decode('utf-8')
+            size = json.loads(size)
+            size = int(size)
+            print('Size for soldier: ', size)
             data = bytearray()
-            while True:
+            while size - len(data) >= 1024:
                 packet = client_socket.recv(1024)
                 if not packet:
                     break
                 data += packet
-            if not data:
-                break
+            if size - len(data) > 0:
+                packet = client_socket.recv(size-len(data))
+                if not packet:
+                    break
+                data += packet
+
             data = json.loads(data)
             if data["message_type"] == "result":
                 self.status[client_id] = "idle"

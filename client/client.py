@@ -34,7 +34,7 @@ class Client:
             data = bytearray()
             while True:
                 print("packet")
-                packet = self.server.recv(1024)
+                packet = self.server.recv(1)
                 if not packet:
                     break
                 data += packet
@@ -59,11 +59,13 @@ class Commander(Client):
 
     def command(self, command):
         try:
-            self.send_message(json.dumps({
+            message = json.dumps(json.dumps({
                 "message_type": "command",
                 "client_id": self.ID,
                 "command": command
             }))
+            self.send_message(json.dumps(sys.getsizeof(message)))
+            self.send_message(message)
 
             data = self.receive_message()
             if data["message_type"] == "result":
