@@ -1,6 +1,9 @@
 import socket
 import json
-
+import numpy as np 
+import pickle
+import base64
+import sys
 class Client:
     def __init__(self, IP, port, ID):
         self.IP = IP
@@ -11,6 +14,7 @@ class Client:
 
     def send_message(self,message):
         try:
+            print("message size(bytes): ", sys.getsizeof(message))
             self.server.send(message.encode('utf-8'))
         except socket.error as e:
             print(f"[ERROR] Failed to send message: {e}")
@@ -26,7 +30,14 @@ class Client:
 
     def receive_message(self):
         try:
-            data = self.server.recv(1024)
+            # data = self.server.recv(1024)
+            data = bytearray()
+            while True:
+                print("packet")
+                packet = self.server.recv(1024)
+                if not packet:
+                    break
+                data += packet
             if not data:
                 return None
             data = json.loads(data.decode('utf-8'))
@@ -96,7 +107,19 @@ class Soldier(Client):
 
     def obey(self, task):
         try:
-            result = task["task"].upper()
+            # result = task["task"].upper()
+            sim_task = json.loads(task["task"])
+
+            simulator = sim_task["function"]
+            serialized_function = base64.b64decode(simulator)
+            simulator = pickle.loads(serialized_function)
+            simulator_args = {}
+            for key in sim_task:
+                if key != "function":
+                    simulator_args[key] = sim_task[key]
+            
+            result = simulator(**simulator_args)
+
             self.send_message(json.dumps({
                 "message_type": "result",
                 "client_id": task["client_id"],

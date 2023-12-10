@@ -22,77 +22,111 @@ class General:
     def handle_commander(self, client_id, client_socket):
         tasks = queue.Queue()
         while True:
-            data = client_socket.recv(1024).decode('utf-8')
+            # data = client_socket.recv(1024).decode('utf-8')
+            data = bytearray()
+            while True:
+                packet = client_socket.recv(1024)
+                if not packet:
+                    break
+                data += packet
             if not data:
                 break
             data = json.loads(data)
             if data["message_type"] == "command":
-                for i, word in enumerate(data["command"].split()):
-                    tasks.put((i, word))
+                initial_heights = data["command"]["initial_heights"]
+                split_parts = 10
+                split_data = [
+                    initial_heights[i * len(initial_heights) // split_parts : (i + 1) * len(initial_heights) // split_parts]
+                    for i in range(split_parts)
+                ]
+                for i, heights_part in enumerate(split_data):
+                    tasks.put((i, {
+                        "function": data["command"]["function"],
+                        "num_steps": data["command"]["num_steps"],
+                        "num_balls": len(heights_part),
+                        "damping_factor": data["command"]["damping_factor"],
+                        "dt": data["command"]["dt"],
+                        "initial_heights": heights_part
+                    }))
+
+                # Store metadata for the client
                 self.metadata[data["client_id"]] = {
-                    "length" : tasks.qsize(),
+                    "length": tasks.qsize(),
                 }
-                for j in range(tasks.qsize()):
-                    i = 0
-                    task = tasks.get()
-                    while i < len(self.status):
-                        c_id = list(self.status.keys())[i]
-                        if self.status[c_id] == "idle":
-                            self.status[c_id] = "busy"
-                            self.soldiers[c_id].send(json.dumps({
+
+                # Assign tasks to available soldiers
+                for task_id in range(tasks.qsize()):
+                    assigned = False
+                    for soldier_id, soldier_status in self.status.items():
+                        if soldier_status == "idle":
+                            self.status[soldier_id] = "busy"
+                            self.soldiers[soldier_id].send(json.dumps({
                                 "message_type": "command",
-                                "client_id" : client_id,
-                                "task_id": task[0],
-                                "task": task[1]
+                                "client_id": client_id,
+                                "task_id": task_id,
+                                "task": tasks.get()[1]
                             }).encode('utf-8'))
+                            assigned = True
                             break
-                        i += 1
-                        if i == len(self.status):
-                            i = 0
-    
+                    if not assigned:
+                        tasks.put(tasks.get())  # Re-queue the task for later
+
     def handle_soldier(self, client_id, client_socket):
         while True:
-            data = client_socket.recv(1024).decode('utf-8')
+            # data = client_socket.recv(1024).decode('utf-8')
+            data = bytearray()
+            while True:
+                packet = client_socket.recv(1024)
+                if not packet:
+                    break
+                data += packet
             if not data:
                 break
             data = json.loads(data)
             if data["message_type"] == "result":
                 self.status[client_id] = "idle"
-                if data["client_id"] not in self.results:
-                    self.results[data["client_id"]] = []
-                self.results[data["client_id"]].append(data)
-                if len(self.results[data["client_id"]]) == self.metadata[data["client_id"]]["length"]:
-                    # sort the results[data["client_id"]]] according to task_id
-                    self.results[data["client_id"]].sort(key=lambda x: x["task_id"])
-                    final_result = ' '.join([result["result"] for result in self.results[data["client_id"]]])
-                    self.commanders[data["client_id"]].send(json.dumps({
+                if client_id not in self.results:
+                    self.results[client_id] = []
+                self.results[client_id].append(data)
+                if len(self.results[client_id]) == self.metadata[client_id]["length"]:
+                    self.results[client_id].sort(key=lambda x: x["task_id"])
+                    final_result = [
+                        [result["results"][0] for result in self.results[client_id]],
+                        [result["results"][1] for result in self.results[client_id]],
+                    ]
+                    print("[INFO] Sending final result to commander "+str(client_id)+"...")
+                    self.commanders[client_id].send(json.dumps({
                         "message_type": "result",
                         "client_id": client_id,
                         "results": final_result
                     }).encode('utf-8'))
-                    self.results[data["client_id"]] = []
-                    self.metadata[data["client_id"]] = {}
-
+                    self.results[client_id] = []
+                    del self.metadata[client_id]
     
 
     def accept_client(self):
         client_socket, client_address = self.socket.accept()
-        # print("Accepted connection from: " + str(client_address))
 
-        # Extract "client_id" from the incoming data
-        data = json.loads(client_socket.recv(1024).decode('utf-8'))
-        client_id = data['client_id']
-        type = data['type']
-        if type == "commander":
-            print(f'[INFO] New commander: {client_address}')
-            self.commanders[client_id] = client_socket
-            thread = Thread(target=self.handle_commander, args=(client_id, client_socket))
-            thread.start()
-        elif type == "soldier":
-            print(f'[INFO] New soldier: {client_address}')
-            self.soldiers[client_id] = client_socket
-            self.status[client_id] = "idle"
-            thread = Thread(target=self.handle_soldier, args=(client_id, client_socket))
-            thread.start()
+        try:
+            data = json.loads(client_socket.recv(1024).decode('utf-8'))
+            client_id = data['client_id']
+            client_type = data['type']
+
+            if client_type == "commander":
+                print(f'[INFO] New commander: {client_address}')
+                self.commanders[client_id] = client_socket
+                thread = Thread(target=self.handle_commander, args=(client_id, client_socket))
+                thread.start()
+            elif client_type == "soldier":
+                print(f'[INFO] New soldier: {client_address}')
+                self.soldiers[client_id] = client_socket
+                self.status[client_id] = "idle"
+                thread = Thread(target=self.handle_soldier, args=(client_id, client_socket))
+                thread.start()
+
+        except (ValueError, KeyError):
+            print("[ERROR] Invalid data received from client.")
+            client_socket.close()
+
 
 
