@@ -49,6 +49,55 @@ def simulate_bouncing_balls_numpy(num_balls, max_initial_height, num_steps, damp
 
     return time_steps, heights_list
 
+def simulate_single_ball_normal(initial_height, num_steps, damping_factor, dt):
+    time_steps = []
+    heights_list = []
+
+    # initial_height = np.random.uniform(0, max_initial_height)
+    height = initial_height
+    velocity = 0.0
+    heights = []
+
+    for step in range(num_steps):
+        acceleration_due_to_gravity = 9.8
+        acceleration = -damping_factor * velocity - acceleration_due_to_gravity
+        velocity += acceleration * dt
+        height += velocity * dt
+
+        heights.append(height)
+        if height <= 0:
+            height = 0
+            velocity = -velocity * damping_factor
+
+    time_steps.append(np.arange(num_steps) * dt)
+    heights_list.append(heights)
+
+    return time_steps, heights_list
+
+def simulate_single_ball_numpy(initial_height, num_steps, damping_factor, dt):
+    time_steps = np.arange(num_steps) * dt
+    heights_list = np.zeros((1, num_steps))
+
+    # initial_height = np.random.uniform(0, max_initial_height)
+    height = initial_height
+    velocity = 0.0
+
+    for step in range(num_steps):
+        acceleration_due_to_gravity = 9.8
+        acceleration = -damping_factor * velocity - acceleration_due_to_gravity
+        velocity += acceleration * dt
+        height += velocity * dt
+
+        height = np.maximum(height, 0)
+        if height <= 0:
+            height = 0
+            velocity = -velocity * damping_factor
+
+        heights_list[:, step] = height
+
+    return time_steps, heights_list
+
+
 num_balls = 1_000_0  
 max_initial_height = 25.0
 num_steps = 750
