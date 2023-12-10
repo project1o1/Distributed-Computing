@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 import json
 import base64
+import sys
 IP = '192.168.0.100'
 # IP = '127.0.0.1'
 PORT = 5000
@@ -56,9 +57,13 @@ def simulate_bouncing_balls_normal(**kwargs):
 
 
 def main():
-    type = input("Enter type (commander C/soldier S): ").lower()
+    args = sys.argv
+    type = args[1].lower()
+    # type = input("Enter type (commander C/soldier S): ").lower()
     if type == "c":
         client = Commander(IP, PORT, ID)
+        print("Connected to server")
+        print("You are the commander")
         while True:
             # command = input("Enter command: ")
             input("Press Enter to send a message to the server... \n")
@@ -87,6 +92,8 @@ def main():
             print(f'Time taken: {end - start}')
     elif type == "s":
         client = Soldier(IP, PORT, ID)
+        print("Connected to server")
+        print("You are a soldier")
         while True:
             print("Waiting for orders...")
             task_id = client.receive_orders()
