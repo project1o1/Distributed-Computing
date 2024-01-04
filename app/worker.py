@@ -10,10 +10,16 @@ class Worker:
         self.type = "worker"
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((self.serverIP, self.port))
-        # self.socket.send(self.ID.encode('utf-8'))
-        self.send_message(self.ID)
-        print(f"[INFO] Worker {self.ID} connected to server")
-        self.socket.recv(1024).decode('utf-8')
+        if self.receive_ack() == 'ACK':
+            self.send_message(self.ID)
+            if self.receive_ack() == 'ACK':
+                print(f"[INFO] Worker {self.ID} connected to server")
+            else:
+                print(f"[ERROR] Failed to connect to server")
+                exit(1)
+        else:
+            print(f"[ERROR] Failed to connect to server")
+            exit(1)
 
     def send_message(self, message, max_retries=3, retry_interval=1):
         try:
