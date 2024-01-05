@@ -11,7 +11,7 @@ class Worker:
         self.type = "worker"
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((self.serverIP, self.port))
-        if self.wait_for_ack():
+        if self.wait_for_ack(expected_ack="CONNECTED"):
             self.send_message(self.ID)
             if self.wait_for_ack():
                 print(f"[INFO] Worker {self.ID} connected to server")
@@ -66,53 +66,22 @@ class Worker:
         except socket.error as e:
             print(f"[ERROR] Failed to send message: {e}")
 
-    def receive_data(self):
-        try:
-            # Receive the size of the incoming message
-            size = int(self.socket.recv(1024).decode('utf-8'))
-            print(f"[INFO] Receiving message of size: {size}")
-            self.send_ack()
-
-            # Receive the message in chunks of 1024 bytes
-            data = bytearray()
-            while len(data) < size:
-                chunk = self.socket.recv(min(1024, size - len(data)))
-                if not chunk:
-                    print("[ERROR] Connection closed prematurely")
-                    return None
-                data += chunk
-
-                # Send acknowledgment for the received chunk
-                self.send_ack()
-
-            print(f"[INFO] Message received of size: {len(data)}")
-
-            # Decode the received data
-            message = data.decode('utf-8')
-
-            return message
-
-        except (socket.error, ValueError) as e:
-            print(f"[ERROR] Failed to receive message: {e}")
-            return None
-
-
-    def wait_for_ack(self, timeout=5):
+    def wait_for_ack(self, expected_ack="ACK", timeout=5):
         try:
             ack_message = self.socket.recv(ACKNOWLEDGEMENT_SIZE).strip().decode('utf-8')
-            return ack_message == 'ACK'
+            return ack_message == expected_ack
         except socket.error as e:
             print(f"[ERROR] Failed to receive acknowledgment: {e}")
             return False
-    
+
     def send_ack(self, message="ACK"):
         try:
             ack_message = message
             self.socket.send(ack_message.encode('utf-8').ljust(ACKNOWLEDGEMENT_SIZE))
         except socket.error as e:
-            print(f"[ERROR] Failed to send message: {e}")
+            print(f"[ERROR] Failed to send acknowledgment: {e}")
 
 
-w = Worker("192.168.0.100", 9000)
+w = Worker("127.0.0.1", 9000)
 w.send_message("Hello server")
 print('message sent')
