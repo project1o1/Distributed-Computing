@@ -14,20 +14,22 @@ class Server:
         self.PORT = port
         self.workers = []
         self.worker_status = {}
-        self.commanders = []
+        self.commanders = {}
+        self.commander_status = {}
 
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.IP, self.PORT))
         self.message_queue = Queue()
         self.result_queue = Queue()
-        self.tasks_map = {}
+        # self.tasks_map = {}
 
         self.lock = Lock()
+        # self.result_lock = Lock()
 
     def start(self):
         self.server_socket.listen()
         print(f"[INFO] Server listening on {self.IP}:{self.PORT}")
-
+        threading.Thread(target=self.handle_result_queue).start()
         while True:
             client_socket, client_address = self.server_socket.accept()
             self.send_ack(client_socket, "CONNECTED")  # Send acknowledgment for connection establishment
@@ -37,10 +39,10 @@ class Server:
             if client_type == "worker":
                 worker_id = self.receive_message(client_socket)
                 self.send_ack(client_socket)
-                self.lock.acquire()
+                # self.lock.acquire()
                 self.workers.append((client_socket, client_address, worker_id))
                 self.worker_status[worker_id] = "idle"
-                self.lock.release()
+                # self.lock.release()
                 print(f"[INFO] Worker {worker_id} connected to server")
 
                 threading.Thread(target=self.handle_worker_send, args=(client_socket, client_address, worker_id)).start()
@@ -49,26 +51,44 @@ class Server:
             elif client_type == "commander":
                 threading.Thread(target=self.handle_commander, args=(client_socket, client_address)).start()
 
+    def handle_result_queue(self):
+        while True:
+            result = self.result_queue.get()
+            print(f"[INFO] Result removed from result queue")
+            commander_id = result["commander_id"]
+            if self.commander_status[commander_id] == "idle":
+                self.result_queue.put(result)
+                continue
+            self.commander_status[commander_id] = "busy"
+            commander_socket, commander_address = self.commanders[commander_id]
+            # self.send_ack(commander_socket, "RESULT")
+            self.send_message(result, commander_socket)
+            print(f"[INFO] Result sent to commander {commander_id}")
+            self.commander_status[commander_id] = "idle"
+            # print(f"[INFO] Result is {result}")
+
     def handle_worker_send(self, worker_socket, worker_address, worker_id):
         while True:
             if self.worker_status[worker_id] == "busy":
                 continue
 
-            self.lock.acquire()
+            # self.lock.acquire()
             if not self.message_queue.empty():
                 message = self.message_queue.get()
                 print(f"[INFO] Message removed from message queue")
                 self.send_message(message, worker_socket)
-                self.tasks_map[message["message_id"]] = message
+                # self.tasks_map[message["message_id"]] = message
                 self.worker_status[worker_id] = "busy"
                 print(f"[INFO] Message sent to worker {worker_address}")
                 self.handle_worker_receive(worker_socket, worker_address, worker_id)
-            self.lock.release()
+            # self.lock.release()
 
     def handle_worker_receive(self, worker_socket, worker_address, worker_id):
         if self.wait_for_ack(worker_socket):
             print(f"[INFO] Acknowledgment received from worker {worker_address}")
             result = self.receive_message(worker_socket)
+            result["timestamp"] = time.time()
+            self.result_queue.put(result)
             print(f"[INFO] Result received from worker {worker_address}: {result}")
             self.worker_status[worker_id] = "idle"
         
@@ -85,18 +105,22 @@ class Server:
         print(f"[INFO] Connection established with commander {commander_address}")
         commander_id = self.receive_message(commander_socket)
         self.send_ack(commander_socket)
-        self.lock.acquire()
-        self.commanders.append((commander_socket, commander_address, commander_id))
+        # self.lock.acquire()
+        # self.commanders.append((commander_socket, commander_address, commander_id))
+        self.commanders[commander_id] = (commander_socket, commander_address)
+        self.commander_status[commander_id] = "idle"
         print(f"[INFO] Commander {commander_id} connected to server")
-        self.lock.release()
+        # self.lock.release()
 
         while True:
+            if self.commander_status[commander_id] == "busy":
+                continue
             message = self.receive_message(commander_socket)
             if message is None:
                 break
             print(f"[INFO] Message received from commander {commander_id}: {message}")
 
-            self.lock.acquire()
+            # self.lock.acquire()
             message_received = {
                 "commander_id": commander_id,
                 "message": message,
@@ -106,7 +130,9 @@ class Server:
             }
             self.message_queue.put(message_received)
             print(f"[INFO] Message added to message queue")
-            self.lock.release()
+            self.commander_status[commander_id] = "busy"
+            # self.lock.release()
+
 
     def receive_message(self, connection):
         try:
@@ -202,6 +228,5 @@ class Server:
             print(f"[ERROR] Failed to receive acknowledgment: {e}")
             return False
 
-# Example Usage:
 s = Server("0.0.0.0", 9001)
 s.start()

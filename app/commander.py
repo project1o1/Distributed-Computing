@@ -32,5 +32,8 @@ class Commander(Client):
                 break
             self.send_message(user_input)
 
+            # self.wait_for_ack("RESULT")
+            result = self.receive_message()
+            print(f"[INFO] Result received from server: {result}")
 
 c = Commander("127.0.0.1", 9001)
