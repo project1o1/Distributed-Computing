@@ -11,7 +11,8 @@ class Worker(Client):
                 self.send_message(self.ID)
                 if self.wait_for_ack():
                     print(f"[INFO] Client {self.ID} connected to server")
-                    self.start_message_loop()
+                    # self.start_message_loop()
+                    self.start_task_loop()
                 else:
                     print(f"[ERROR] Failed to connect to server")
                     exit(1)
@@ -28,5 +29,16 @@ class Worker(Client):
             if user_input.lower() == 'exit':
                 break
             self.send_message(user_input)
+    
+    def start_task_loop(self):
+        while True:
+            message = self.receive_message()
+            if message is None:
+                break
+            print(f"[INFO] Message received: {message}")
+            # self.send_ack()
+            # if message["message_type"] == "task":
+            #     self.send_ack()
+            #     self.send_ack()
 
 w = Worker("127.0.0.1", 9001)

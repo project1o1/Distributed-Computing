@@ -1,17 +1,25 @@
 import socket
 import threading
 from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE
+import time
+import queue
+import nanoid
+import json
 
 class Server:
     def __init__(self, IP, port):
         self.IP = IP
         self.PORT = port
         self.workers = []
-        self.worker_status = []
+        self.worker_status = {}
         self.commanders = []
 
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.IP, self.PORT))
+        self.message_queue = queue.Queue()
+        self.result_queue = queue.Queue()
+        self.tasks_map = {}
+
 
     def start(self):
         self.server_socket.listen()
@@ -24,28 +32,36 @@ class Server:
             client_type = self.receive_message(client_socket)
             self.send_ack(client_socket)  # Send acknowledgment for client type receipt
             if client_type == "worker":
-                threading.Thread(target=self.handle_worker, args=(client_socket, client_address)).start()
+                worker_id = self.receive_message(client_socket)
+                self.send_ack(client_socket)
+                self.workers.append((client_socket, client_address, worker_id))
+                self.worker_status[worker_id] = "idle"
+                print(f"[INFO] Worker {worker_id} connected to server")
+
+                threading.Thread(target=self.handle_worker_send, args=(client_socket, client_address, worker_id)).start()
+                threading.Thread(target=self.handle_worker_recieve, args=(client_socket, client_address, worker_id)).start()
             elif client_type == "commander":
                 threading.Thread(target=self.handle_commander, args=(client_socket, client_address)).start()
 
-    def handle_worker(self, worker_socket, worker_address):
-        print(f"[INFO] Connection established with worker {worker_address}")
-        worker_id = self.receive_message(worker_socket)
-        self.send_ack(worker_socket)
-        # self.send_ack(worker_socket, message="CONNECTED")
-        # self.send_ack(worker_socket)
-        self.workers.append((worker_socket, worker_address, worker_id))
-        self.worker_status.append("idle")
-        print(f"[INFO] Worker {worker_id} connected to server")
+    def handle_worker_send(self, worker_socket, worker_address, worker_id):
+        while True:
+            if self.message_queue.empty():
+                continue
+            message = self.message_queue.get()
+            self.send_message(message, worker_socket)
+            self.tasks_map[message["message_id"]] = message
+            self.worker_status[worker_id] = "busy"
+            print(f"[INFO] Message sent to worker {worker_address}")
 
+    def handle_worker_recieve(self, worker_socket, worker_address, worker_id):
         while True:
             message = self.receive_message(worker_socket)
             if message is None:
                 break
-            print(f"[INFO] Message received from worker {worker_id}: {message}")
-
-            self.send_ack(worker_socket)
-        # Add additional logic as needed for handling worker messages
+            print(f"[INFO] Message received from worker {worker_address}: {message}")
+            self.worker_status[worker_id] = "idle"
+            self.result_queue.put(message)
+            print(f"[INFO] Message added to result queue")       
 
     def handle_commander(self, commander_socket, commander_address):
         print(f"[INFO] Connection established with commander {commander_address}")
@@ -63,19 +79,24 @@ class Server:
             print(f"[INFO] Message received from commander {commander_id}: {message}")
 
             # self.send_ack(commander_socket)
-        # Add additional logic as needed for handling commander messages
+            message_received = {
+                "commander_id": commander_id,
+                "message": message,
+                "timestamp": time.time(),
+                "message_id": nanoid.generate(size=10),
+                "message_type": "task"
+            }
+
+            self.message_queue.put(message_received)
 
     def receive_message(self, connection):
         try:
-            # self.send_ack(connection)  # Send acknowledgment for message size receipt
-
             size_data = connection.recv(HEADER_SIZE)
             if not size_data:
                 print("[ERROR] Failed to receive message size data.")
                 return None
 
             size = int(size_data.strip().decode('utf-8'))
-
             self.send_ack(connection)  # Send acknowledgment for the message size
 
             chunks = []
@@ -91,12 +112,62 @@ class Server:
 
                 self.send_ack(connection)  # Send acknowledgment for each chunk
 
-            message = b''.join(chunks).decode('utf-8')
+            message_bytes = b''.join(chunks)
+            message_json = message_bytes.decode('utf-8')
+            message = json.loads(message_json)  # Decode the JSON message
+
             return message
 
         except socket.error as e:
             print(f"[ERROR] Failed to receive message: {e}")
             return None
+
+    def send_message(self, message, conn, max_retries=3, retry_interval=1):
+        try:
+            # Convert message to bytes using JSON serialization
+            message_json = json.dumps(message)
+            message_bytes = message_json.encode('utf-8')
+
+            # Send the size of the message
+            size = len(message_bytes)
+            size_data = str(size).encode('utf-8').ljust(HEADER_SIZE)
+            print(f"[INFO] Sending message of size: {len(size_data)}")
+            conn.send(size_data)
+            print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
+
+            # Receive acknowledgment for the size
+            if not self.wait_for_ack(conn):
+                print("[ERROR] Failed to send message size acknowledgment")
+                return
+
+            # Send the message in chunks with retries
+            chunk_size = 1024
+            remaining_size = size
+            for i in range(0, size, chunk_size):
+                if remaining_size < chunk_size:
+                    chunk_size = remaining_size
+                chunk = message_bytes[i:i + chunk_size]
+                remaining_size -= chunk_size
+                conn.send(chunk)
+
+                # Receive acknowledgment for the chunk
+                if not self.wait_for_ack(conn):
+                    print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
+                    # Retry sending the chunk
+                    for retry_count in range(max_retries):
+                        time.sleep(retry_interval)
+                        conn.send(chunk)
+                        if self.wait_for_ack(conn):
+                            break
+                    else:
+                        print("[ERROR] Maximum retries reached. Failed to send message chunk.")
+                        return
+
+            print(f"[INFO] Message sent successfully.")
+
+        except socket.error as e:
+            print(f"[ERROR] Failed to send message: {e}")
+
 
     def send_ack(self, conn, message="ACK"):
         try:
@@ -104,6 +175,15 @@ class Server:
             conn.send(ack_message)
         except socket.error as e:
             print(f"[ERROR] Failed to send acknowledgment: {e}")
+
+
+    def wait_for_ack(self, conn, expected_ack="ACK"):
+        try:
+            ack = conn.recv(ACKNOWLEDGEMENT_SIZE)
+            return ack.decode('utf-8').strip() == expected_ack
+        except socket.error as e:
+            print(f"[ERROR] Failed to receive acknowledgment: {e}")
+            return False
 
 # Example Usage:
 s = Server("0.0.0.0", 9001)
