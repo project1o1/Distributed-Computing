@@ -5,6 +5,10 @@ class Server:
     def __init__(self, IP, port):
         self.IP = IP
         self.PORT = port
+        self.workers = []
+        self.worker_status = []
+        self.commanders = []
+        
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((self.IP, self.PORT))
 
@@ -15,7 +19,15 @@ class Server:
         self.send_ack(connection, message="CONNECTED")
         id = self.receive_message(connection)
         self.send_ack(connection)
-        return connection, address, id
+        type = self.receive_message(connection)
+        self.send_ack(connection)
+        # return connection, address, id, type
+        if type == "worker":
+            self.workers.append((connection, address, id))
+            self.worker_status.append("idle")
+        elif type == "commander":
+            self.commanders.append((connection, address, id))
+        return connection, address, id, type
 
     def receive_message(self, con: socket.socket):
         try:
@@ -26,9 +38,9 @@ class Server:
             if not size_data:
                 print("[ERROR] Failed to receive message size data.")
                 return None
-            print(f'[INFO] Message size received successfully: {size_data}')
 
             size = int(size_data.strip().decode('utf-8'))
+            print(f'[INFO] Message size received successfully: {size}')
             print(f"[INFO] Receiving message of size {size}.")
 
             self.send_ack(con)  # Send acknowledgment for the message size
@@ -64,10 +76,20 @@ class Server:
 
 
 s = Server("0.0.0.0", 9000)
-connection, address, id = s.accept_connection()
-print("[INFO] Details of the client:")
-print(f"IP Address: {address[0]}")
-print(f"Port: {address[1]}")
-print(f"ID: {id}")
-print("[INFO] Receiving message from client...")
-print(s.receive_message(connection))
+# connection, address, id, type = s.accept_connection()
+# print("[INFO] Details of the client:")
+# print(f"IP Address: {address[0]}")
+# print(f"Port: {address[1]}")
+# print(f"ID: {id}")
+# print(f"Type: {type}")
+# print("[INFO] Receiving message from client...")
+# print(s.receive_message(connection))
+while True:
+    connection, address, id, type = s.accept_connection()
+    print("[INFO] Details of the client:")
+    print(f"IP Address: {address[0]}")
+    print(f"Port: {address[1]}")
+    print(f"ID: {id}")
+    print(f"Type: {type}")
+    print("[INFO] Receiving message from client...")
+    print(s.receive_message(connection))
