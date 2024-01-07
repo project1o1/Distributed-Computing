@@ -21,9 +21,11 @@ class Server:
         self.server_socket.bind((self.IP, self.PORT))
         self.message_queue = Queue()
         self.result_queue = Queue()
-        # self.tasks_map = {}
 
-        self.lock = Lock()
+        self.result_lengths = {}
+        self.result_sent_lengths = {}
+
+        # self.lock = Lock()
         # self.result_lock = Lock()
 
     def start(self):
@@ -54,7 +56,7 @@ class Server:
     def handle_result_queue(self):
         while True:
             result = self.result_queue.get()
-            print(f"[INFO] Result removed from result queue")
+            print(f"[INFO] Result Queue size: {self.result_queue.qsize()}")
             commander_id = result["commander_id"]
             if self.commander_status[commander_id] == "idle":
                 self.result_queue.put(result)
@@ -64,7 +66,10 @@ class Server:
             # self.send_ack(commander_socket, "RESULT")
             self.send_message(result, commander_socket)
             print(f"[INFO] Result sent to commander {commander_id}")
-            self.commander_status[commander_id] = "idle"
+            # self.commander_status[commander_id] = "idle"
+            self.result_sent_lengths[commander_id] += 1
+            if self.result_sent_lengths[commander_id] == self.result_lengths[commander_id]:
+                self.commander_status[commander_id] = "idle"
             # print(f"[INFO] Result is {result}")
 
     def handle_worker_send(self, worker_socket, worker_address, worker_id):
@@ -77,7 +82,6 @@ class Server:
                 message = self.message_queue.get()
                 print(f"[INFO] Message removed from message queue")
                 self.send_message(message, worker_socket)
-                # self.tasks_map[message["message_id"]] = message
                 self.worker_status[worker_id] = "busy"
                 print(f"[INFO] Message sent to worker {worker_address}")
                 self.handle_worker_receive(worker_socket, worker_address, worker_id)
@@ -119,20 +123,26 @@ class Server:
             if message is None:
                 break
             print(f"[INFO] Message received from commander {commander_id}: {message}")
+            message_chunks = message.split(" ")
+            length = len(message_chunks)
+            self.send_message(length, commander_socket)
+            for index, message_chunk in enumerate(message_chunks):
+                self.add_message_to_queue(message_chunk, commander_id, index)
+            self.result_lengths[commander_id] = length 
+            self.result_sent_lengths[commander_id] = 0
+            self.commander_status[commander_id] = "busy"
 
-            # self.lock.acquire()
-            message_received = {
+    def add_message_to_queue(self, message, commander_id, index):
+        message_received = {
                 "commander_id": commander_id,
                 "message": message,
                 "timestamp": time.time(),
                 "message_id": nanoid.generate(size=10),
-                "message_type": "task"
+                "message_type": "task",
+                "chunk_number": index
             }
-            self.message_queue.put(message_received)
-            print(f"[INFO] Message added to message queue")
-            self.commander_status[commander_id] = "busy"
-            # self.lock.release()
-
+        self.message_queue.put(message_received)
+        print(f"[INFO] Message added to message queue")
 
     def receive_message(self, connection):
         try:

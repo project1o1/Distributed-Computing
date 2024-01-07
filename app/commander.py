@@ -26,14 +26,24 @@ class Commander(Client):
     def start_message_loop(self):
         while True:
             # user_input = input("Enter message to send (or type 'exit' to quit): ")
-            user_input = "hello"
+            user_input = "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal "
             # time.sleep(.5)
             if user_input.lower() == 'exit':
                 break
             self.send_message(user_input)
 
-            # self.wait_for_ack("RESULT")
-            result = self.receive_message()
-            print(f"[INFO] Result received from server: {result}")
+            length = self.receive_message()
+
+            result = {}
+            while length > 0:
+                result_chunk = self.receive_message()
+                result[result_chunk["chunk_number"]] = result_chunk
+                print(f"[INFO] Received chunk {result_chunk['chunk_number']}")
+                length -= 1
+
+            message = ""
+            for i in range(len(result)):
+                message += result[i]["message"]+" "
+            print(f"[INFO] Result received from server: {message}")
 
 c = Commander("127.0.0.1", 9001)
