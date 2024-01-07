@@ -1,7 +1,7 @@
 import nanoid
 import socket
 from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE
-
+import time
 class Client:
     def __init__(self, IP, port):
         self.IP = IP
@@ -16,7 +16,7 @@ class Client:
         except socket.error as e:
             print(f"[ERROR] Failed to receive acknowledgment: {e}")
             return False
-        
+
     def send_ack(self, message="ACK"):
         try:
             self.socket.send(message.encode('utf-8').ljust(ACKNOWLEDGEMENT_SIZE))
@@ -24,7 +24,7 @@ class Client:
             print(f"[ERROR] Failed to send acknowledgment: {e}")
             return False
         return True
-    
+
     def send_message(self, message, max_retries=3, retry_interval=1):
         try:
             # Convert message to bytes
@@ -36,6 +36,7 @@ class Client:
             print(f"[INFO] Sending message of size: {len(size_data)}")
             self.socket.send(size_data)
             print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
+
             # Receive acknowledgment for the size
             if not self.wait_for_ack():
                 print("[ERROR] Failed to send message size acknowledgment")
