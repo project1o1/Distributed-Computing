@@ -1,5 +1,5 @@
 from client import Client
-
+import time
 
 class Commander(Client):
     def __init__(self, IP, port):
@@ -25,7 +25,9 @@ class Commander(Client):
 
     def start_message_loop(self):
         while True:
-            user_input = input("Enter message to send (or type 'exit' to quit): ")
+            # user_input = input("Enter message to send (or type 'exit' to quit): ")
+            user_input = "hello"
+            # time.sleep(.1)
             if user_input.lower() == 'exit':
                 break
             self.send_message(user_input)

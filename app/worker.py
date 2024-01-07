@@ -36,7 +36,8 @@ class Worker(Client):
             if message is None:
                 break
             print(f"[INFO] Message received: {message}")
-            # self.send_ack()
+
+            self.send_ack()
             # if message["message_type"] == "task":
             #     self.send_ack()
             #     self.send_ack()

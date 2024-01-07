@@ -1,8 +1,10 @@
+# server.py
 import socket
 import threading
 from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE
 import time
-import queue
+from queue import Queue
+from threading import Lock
 import nanoid
 import json
 
@@ -16,61 +18,74 @@ class Server:
 
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.IP, self.PORT))
-        self.message_queue = queue.Queue()
-        self.result_queue = queue.Queue()
+        self.message_queue = Queue()
+        self.result_queue = Queue()
         self.tasks_map = {}
 
+        self.lock = Lock()
 
     def start(self):
         self.server_socket.listen()
-
         print(f"[INFO] Server listening on {self.IP}:{self.PORT}")
 
         while True:
             client_socket, client_address = self.server_socket.accept()
-            self.send_ack(client_socket,"CONNECTED")  # Send acknowledgment for connection establishment
+            self.send_ack(client_socket, "CONNECTED")  # Send acknowledgment for connection establishment
             client_type = self.receive_message(client_socket)
             self.send_ack(client_socket)  # Send acknowledgment for client type receipt
+
             if client_type == "worker":
                 worker_id = self.receive_message(client_socket)
                 self.send_ack(client_socket)
+                self.lock.acquire()
                 self.workers.append((client_socket, client_address, worker_id))
                 self.worker_status[worker_id] = "idle"
+                self.lock.release()
                 print(f"[INFO] Worker {worker_id} connected to server")
 
                 threading.Thread(target=self.handle_worker_send, args=(client_socket, client_address, worker_id)).start()
-                threading.Thread(target=self.handle_worker_recieve, args=(client_socket, client_address, worker_id)).start()
+                # threading.Thread(target=self.handle_worker_receive, args=(client_socket, client_address, worker_id)).start()
+
             elif client_type == "commander":
                 threading.Thread(target=self.handle_commander, args=(client_socket, client_address)).start()
 
     def handle_worker_send(self, worker_socket, worker_address, worker_id):
         while True:
-            if self.message_queue.empty():
+            if self.worker_status[worker_id] == "busy":
                 continue
-            message = self.message_queue.get()
-            self.send_message(message, worker_socket)
-            self.tasks_map[message["message_id"]] = message
-            self.worker_status[worker_id] = "busy"
-            print(f"[INFO] Message sent to worker {worker_address}")
 
-    def handle_worker_recieve(self, worker_socket, worker_address, worker_id):
-        while True:
-            message = self.receive_message(worker_socket)
-            if message is None:
-                break
-            print(f"[INFO] Message received from worker {worker_address}: {message}")
+            self.lock.acquire()
+            if not self.message_queue.empty():
+                message = self.message_queue.get()
+                print(f"[INFO] Message removed from message queue")
+                self.send_message(message, worker_socket)
+                self.tasks_map[message["message_id"]] = message
+                self.worker_status[worker_id] = "busy"
+                print(f"[INFO] Message sent to worker {worker_address}")
+                self.handle_worker_receive(worker_socket, worker_address, worker_id)
+            self.lock.release()
+
+    def handle_worker_receive(self, worker_socket, worker_address, worker_id):
+        if self.wait_for_ack(worker_socket):
+            print(f"[INFO] Acknowledgment received from worker {worker_address}")
             self.worker_status[worker_id] = "idle"
-            self.result_queue.put(message)
-            print(f"[INFO] Message added to result queue")       
+        # while True:
+            # message = self.receive_message(worker_socket)
+            # if message is None:
+            #     break
+            # self.lock.acquire()
+            # print(f"[INFO] Message received from worker {worker_address}: {message}")
+            # self.result_queue.put(message)
+            # print(f"[INFO] Message added to result queue")
 
     def handle_commander(self, commander_socket, commander_address):
         print(f"[INFO] Connection established with commander {commander_address}")
         commander_id = self.receive_message(commander_socket)
         self.send_ack(commander_socket)
-        # self.send_ack(commander_socket, message="CONNECTED")
-        # self.send_ack(commander_socket)
+        self.lock.acquire()
         self.commanders.append((commander_socket, commander_address, commander_id))
         print(f"[INFO] Commander {commander_id} connected to server")
+        self.lock.release()
 
         while True:
             message = self.receive_message(commander_socket)
@@ -78,7 +93,7 @@ class Server:
                 break
             print(f"[INFO] Message received from commander {commander_id}: {message}")
 
-            # self.send_ack(commander_socket)
+            self.lock.acquire()
             message_received = {
                 "commander_id": commander_id,
                 "message": message,
@@ -86,8 +101,9 @@ class Server:
                 "message_id": nanoid.generate(size=10),
                 "message_type": "task"
             }
-
             self.message_queue.put(message_received)
+            print(f"[INFO] Message added to message queue")
+            self.lock.release()
 
     def receive_message(self, connection):
         try:
@@ -168,14 +184,12 @@ class Server:
         except socket.error as e:
             print(f"[ERROR] Failed to send message: {e}")
 
-
     def send_ack(self, conn, message="ACK"):
         try:
             ack_message = message.encode('utf-8').ljust(ACKNOWLEDGEMENT_SIZE)
             conn.send(ack_message)
         except socket.error as e:
             print(f"[ERROR] Failed to send acknowledgment: {e}")
-
 
     def wait_for_ack(self, conn, expected_ack="ACK"):
         try:
