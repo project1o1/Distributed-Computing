@@ -68,7 +68,10 @@ class Server:
     def handle_worker_receive(self, worker_socket, worker_address, worker_id):
         if self.wait_for_ack(worker_socket):
             print(f"[INFO] Acknowledgment received from worker {worker_address}")
+            result = self.receive_message(worker_socket)
+            print(f"[INFO] Result received from worker {worker_address}: {result}")
             self.worker_status[worker_id] = "idle"
+        
         # while True:
             # message = self.receive_message(worker_socket)
             # if message is None:

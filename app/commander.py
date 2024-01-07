@@ -27,7 +27,7 @@ class Commander(Client):
         while True:
             # user_input = input("Enter message to send (or type 'exit' to quit): ")
             user_input = "hello"
-            # time.sleep(.1)
+            # time.sleep(.5)
             if user_input.lower() == 'exit':
                 break
             self.send_message(user_input)
