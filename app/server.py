@@ -158,9 +158,7 @@ class Server:
             commander_ids = list(self.all_messages.keys())
             # print(f"[INFO] Commander IDs: {commander_ids}")
             for commander_id in commander_ids:
-                print(f"[INFO] Out of loop Commander {commander_id}")
                 if not self.all_messages[commander_id].empty():
-                    print(f"[INFO] Inside loop Commander {commander_id}")
                     # print(f"[INFO] Message queue size for commander {commander_id}: {self.all_messages[commander_id].qsize()}")
                     message = self.all_messages[commander_id].get()
                     self.message_queue.put(message)
