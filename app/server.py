@@ -125,14 +125,15 @@ class Server:
             if message is None:
                 break
             # print(f"[INFO] Message received from commander {commander_id}: {message}")
-            message_chunks = message.split(" ")
-            length = len(message_chunks)
-            self.send_message(length, commander_socket)
+            string = message["message"]
+            no_of_chunks = 10
+            message_chunks = [string[i:i + len(string)//no_of_chunks] for i in range(0, len(string), len(string)//no_of_chunks)]
+            self.send_message(no_of_chunks, commander_socket)
             # print(f"[INFO] Message length sent to commander {commander_id}")
             self.all_messages[commander_id] = Queue()
             for index, message_chunk in enumerate(message_chunks):
                 self.add_message_to_queue(message_chunk, commander_id, index)
-            self.result_lengths[commander_id] = length 
+            self.result_lengths[commander_id] = no_of_chunks 
             self.result_sent_lengths[commander_id] = 0
             self.commander_status[commander_id] = "busy"
 

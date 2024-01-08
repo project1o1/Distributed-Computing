@@ -1,6 +1,15 @@
 from client import Client
 import time
 from constants import PORT
+import inspect
+
+
+
+def lowercase(message : str) -> str:
+    return message.lower()
+
+func = inspect.getsource(lowercase)
+
 
 class Commander(Client):
     def __init__(self, IP, port):
@@ -26,11 +35,17 @@ class Commander(Client):
 
     def start_message_loop(self):
         while True:
-            # user_input = input("Enter message to send (or type 'exit' to quit): ")
-            user_input = "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal "
-            # time.sleep(.5)
+            user_input = input("Press Enter to send the function (or type 'exit' to quit): ")
             if user_input.lower() == 'exit':
                 break
+            user_input = {
+                "function": func,
+                "function_name": "lowercase",
+                "message": "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal",
+            }
+            # user_input = input("Enter message to send (or type 'exit' to quit): ")
+            # user_input = "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal "
+            # time.sleep(.5)
             self.send_message(user_input)
 
             length = self.receive_message()
@@ -48,3 +63,4 @@ class Commander(Client):
             print(f"[INFO] Result received from server: {message}")
 
 c = Commander("127.0.0.1", PORT)
+
