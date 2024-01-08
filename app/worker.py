@@ -1,4 +1,5 @@
 from client import Client
+from constants import PORT
 
 class Worker(Client):
     def __init__(self, IP, port):
@@ -46,4 +47,4 @@ class Worker(Client):
             #     self.send_ack()
             #     self.send_ack()
 
-w = Worker("127.0.0.1", 9001)
+w = Worker("127.0.0.1", PORT)
