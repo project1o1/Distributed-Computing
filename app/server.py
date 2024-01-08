@@ -128,14 +128,15 @@ class Server:
             string = message["message"]
             no_of_chunks = 10
             message_chunks = [string[i:i + len(string)//no_of_chunks] for i in range(0, len(string), len(string)//no_of_chunks)]
-            self.send_message(len(message_chunks), commander_socket)
+            length = len(message_chunks)
+            self.send_message(length, commander_socket)
             # print(f"[INFO] Message length sent to commander {commander_id}")
             self.all_messages[commander_id] = Queue()
             for index, message_chunk in enumerate(message_chunks):
                 chunk = message.copy()
                 chunk["message"] = message_chunk
                 self.add_message_to_queue(chunk, commander_id, index)
-            self.result_lengths[commander_id] = len(message_chunks)
+            self.result_lengths[commander_id] = length
             self.result_sent_lengths[commander_id] = 0
             self.commander_status[commander_id] = "busy"
 
