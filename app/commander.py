@@ -1,5 +1,6 @@
 from client import Client
 import time
+from constants import PORT
 
 class Commander(Client):
     def __init__(self, IP, port):
@@ -46,4 +47,4 @@ class Commander(Client):
                 message += result[i]["message"]+" "
             print(f"[INFO] Result received from server: {message}")
 
-c = Commander("127.0.0.1", 9001)
+c = Commander("127.0.0.1", PORT)
