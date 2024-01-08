@@ -1,7 +1,7 @@
 # server.py
 import socket
 import threading
-from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE
+from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE, PORT
 import time
 from queue import Queue
 from threading import Lock
@@ -21,6 +21,7 @@ class Server:
         self.server_socket.bind((self.IP, self.PORT))
         self.message_queue = Queue()
         self.result_queue = Queue()
+        self.all_messages = {}
 
         self.result_lengths = {}
         self.result_sent_lengths = {}
@@ -32,6 +33,7 @@ class Server:
         self.server_socket.listen()
         print(f"[INFO] Server listening on {self.IP}:{self.PORT}")
         threading.Thread(target=self.handle_result_queue).start()
+        threading.Thread(target=self.order_messages).start()
         while True:
             client_socket, client_address = self.server_socket.accept()
             self.send_ack(client_socket, "CONNECTED")  # Send acknowledgment for connection establishment
@@ -56,7 +58,7 @@ class Server:
     def handle_result_queue(self):
         while True:
             result = self.result_queue.get()
-            print(f"[INFO] Result Queue size: {self.result_queue.qsize()}")
+            # print(f"[INFO] Result Queue size: {self.result_queue.qsize()}")
             commander_id = result["commander_id"]
             if self.commander_status[commander_id] == "idle":
                 self.result_queue.put(result)
@@ -65,7 +67,7 @@ class Server:
             commander_socket, commander_address = self.commanders[commander_id]
             # self.send_ack(commander_socket, "RESULT")
             self.send_message(result, commander_socket)
-            print(f"[INFO] Result sent to commander {commander_id}")
+            # print(f"[INFO] Result sent to commander {commander_id}")
             # self.commander_status[commander_id] = "idle"
             self.result_sent_lengths[commander_id] += 1
             if self.result_sent_lengths[commander_id] == self.result_lengths[commander_id]:
@@ -80,20 +82,20 @@ class Server:
             # self.lock.acquire()
             if not self.message_queue.empty():
                 message = self.message_queue.get()
-                print(f"[INFO] Message removed from message queue")
+                # print(f"[INFO] Message removed from message queue")
                 self.send_message(message, worker_socket)
                 self.worker_status[worker_id] = "busy"
-                print(f"[INFO] Message sent to worker {worker_address}")
+                # print(f"[INFO] Message sent to worker {worker_address}")
                 self.handle_worker_receive(worker_socket, worker_address, worker_id)
             # self.lock.release()
 
     def handle_worker_receive(self, worker_socket, worker_address, worker_id):
         if self.wait_for_ack(worker_socket):
-            print(f"[INFO] Acknowledgment received from worker {worker_address}")
+            # print(f"[INFO] Acknowledgment received from worker {worker_address}")
             result = self.receive_message(worker_socket)
             result["timestamp"] = time.time()
             self.result_queue.put(result)
-            print(f"[INFO] Result received from worker {worker_address}: {result}")
+            # print(f"[INFO] Result received from worker {worker_address}: {result}")
             self.worker_status[worker_id] = "idle"
         
         # while True:
@@ -106,14 +108,14 @@ class Server:
             # print(f"[INFO] Message added to result queue")
 
     def handle_commander(self, commander_socket, commander_address):
-        print(f"[INFO] Connection established with commander {commander_address}")
+        # print(f"[INFO] Connection established with commander {commander_address}")
         commander_id = self.receive_message(commander_socket)
         self.send_ack(commander_socket)
         # self.lock.acquire()
         # self.commanders.append((commander_socket, commander_address, commander_id))
         self.commanders[commander_id] = (commander_socket, commander_address)
         self.commander_status[commander_id] = "idle"
-        print(f"[INFO] Commander {commander_id} connected to server")
+        # print(f"[INFO] Commander {commander_id} connected to server")
         # self.lock.release()
 
         while True:
@@ -122,10 +124,12 @@ class Server:
             message = self.receive_message(commander_socket)
             if message is None:
                 break
-            print(f"[INFO] Message received from commander {commander_id}: {message}")
+            # print(f"[INFO] Message received from commander {commander_id}: {message}")
             message_chunks = message.split(" ")
             length = len(message_chunks)
             self.send_message(length, commander_socket)
+            # print(f"[INFO] Message length sent to commander {commander_id}")
+            self.all_messages[commander_id] = Queue()
             for index, message_chunk in enumerate(message_chunks):
                 self.add_message_to_queue(message_chunk, commander_id, index)
             self.result_lengths[commander_id] = length 
@@ -141,8 +145,23 @@ class Server:
                 "message_type": "task",
                 "chunk_number": index
             }
-        self.message_queue.put(message_received)
-        print(f"[INFO] Message added to message queue")
+        # self.message_queue.put(message_received)
+        self.all_messages[commander_id].put(message_received)
+        # print(f"[INFO] Message added to message queue")
+
+    def order_messages(self):
+        while True:
+            # Make a copy of the keys to ensure the loop considers new keys
+            commander_ids = list(self.all_messages.keys())
+            # print(f"[INFO] Commander IDs: {commander_ids}")
+            for commander_id in commander_ids:
+                print(f"[INFO] Out of loop Commander {commander_id}")
+                if not self.all_messages[commander_id].empty():
+                    print(f"[INFO] Inside loop Commander {commander_id}")
+                    # print(f"[INFO] Message queue size for commander {commander_id}: {self.all_messages[commander_id].qsize()}")
+                    message = self.all_messages[commander_id].get()
+                    self.message_queue.put(message)
+                    # print(f"[INFO] Message of commander {commander_id} added to message queue")
 
     def receive_message(self, connection):
         try:
@@ -186,9 +205,9 @@ class Server:
             # Send the size of the message
             size = len(message_bytes)
             size_data = str(size).encode('utf-8').ljust(HEADER_SIZE)
-            print(f"[INFO] Sending message of size: {len(size_data)}")
+            # print(f"[INFO] Sending message of size: {len(size_data)}")
             conn.send(size_data)
-            print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
+            # print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
 
             # Receive acknowledgment for the size
             if not self.wait_for_ack(conn):
@@ -218,7 +237,7 @@ class Server:
                         print("[ERROR] Maximum retries reached. Failed to send message chunk.")
                         return
 
-            print(f"[INFO] Message sent successfully.")
+            # print(f"[INFO] Message sent successfully.")
 
         except socket.error as e:
             print(f"[ERROR] Failed to send message: {e}")
@@ -238,5 +257,5 @@ class Server:
             print(f"[ERROR] Failed to receive acknowledgment: {e}")
             return False
 
-s = Server("0.0.0.0", 9001)
+s = Server("0.0.0.0", port=PORT)
 s.start()
