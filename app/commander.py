@@ -35,13 +35,14 @@ class Commander(Client):
 
     def start_message_loop(self):
         while True:
-            user_input = input("Press Enter to send the function (or type 'exit' to quit): ")
+            # user_input = input("Press Enter to send the function (or type 'exit' to quit): ")
+            user_input = "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal"
             if user_input.lower() == 'exit':
                 break
             user_input = {
                 "function": func,
                 "function_name": "uppercase",
-                "message": "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal",
+                "message": user_input,
             }
             # user_input = input("Enter message to send (or type 'exit' to quit): ")
             # user_input = "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal "
