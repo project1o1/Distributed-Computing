@@ -38,7 +38,11 @@ class Worker(Client):
                 break
             print(f"[INFO] Message received: {message}")
             task = message["message"]
-            result = task.upper()
+            input_task = task["message"]
+            function = task["function"]
+            function_name = task["function_name"]
+            exec(function)
+            result = eval(function_name+"(input_task)")
             self.send_ack()
             message["message_type"] = "result"
             message["message"] = result

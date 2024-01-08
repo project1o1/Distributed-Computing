@@ -5,10 +5,10 @@ import inspect
 
 
 
-def lowercase(message : str) -> str:
-    return message.lower()
+def uppercase(message : str) -> str:
+    return message.upper()
 
-func = inspect.getsource(lowercase)
+func = inspect.getsource(uppercase)
 
 
 class Commander(Client):
@@ -40,7 +40,7 @@ class Commander(Client):
                 break
             user_input = {
                 "function": func,
-                "function_name": "lowercase",
+                "function_name": "uppercase",
                 "message": "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal",
             }
             # user_input = input("Enter message to send (or type 'exit' to quit): ")
