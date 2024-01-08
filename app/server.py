@@ -132,7 +132,9 @@ class Server:
             # print(f"[INFO] Message length sent to commander {commander_id}")
             self.all_messages[commander_id] = Queue()
             for index, message_chunk in enumerate(message_chunks):
-                self.add_message_to_queue(message_chunk, commander_id, index)
+                chunk = message
+                chunk["message"] = message_chunk
+                self.add_message_to_queue(chunk, commander_id, index)
             self.result_lengths[commander_id] = no_of_chunks 
             self.result_sent_lengths[commander_id] = 0
             self.commander_status[commander_id] = "busy"
