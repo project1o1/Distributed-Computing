@@ -51,4 +51,5 @@ class Worker(Client):
             #     self.send_ack()
             #     self.send_ack()
 
-w = Worker("127.0.0.1", PORT)
+if __name__ == "__main__":
+    w = Worker("127.0.0.1", PORT)

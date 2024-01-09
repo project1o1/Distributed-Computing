@@ -3,6 +3,7 @@ import socket
 from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE
 import time
 import json
+
 class Client:
     def __init__(self, IP, port):
         self.IP = IP
