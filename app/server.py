@@ -12,10 +12,12 @@ class Server:
     def __init__(self, IP, port):
         self.IP = IP
         self.PORT = port
-        self.workers = []
+        self.workers = {}
         self.worker_status = {}
         self.commanders = {}
         self.commander_status = {}
+
+        self.assigned_tasks = {}
 
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.IP, self.PORT))
@@ -34,6 +36,7 @@ class Server:
         print(f"[INFO] Server listening on {self.IP}:{self.PORT}")
         threading.Thread(target=self.handle_result_queue).start()
         threading.Thread(target=self.order_messages).start()
+        threading.Thread(target=self.worker_health_check).start()
         while True:
             client_socket, client_address = self.server_socket.accept()
             self.send_ack(client_socket, "CONNECTED")  # Send acknowledgment for connection establishment
@@ -44,7 +47,7 @@ class Server:
                 worker_id = self.receive_message(client_socket)
                 self.send_ack(client_socket)
                 # self.lock.acquire()
-                self.workers.append((client_socket, client_address, worker_id))
+                self.workers[worker_id] = (client_socket, client_address)
                 self.worker_status[worker_id] = "idle"
                 # self.lock.release()
                 print(f"[INFO] Worker {worker_id} connected to server")
@@ -74,6 +77,23 @@ class Server:
                 self.commander_status[commander_id] = "idle"
             # print(f"[INFO] Result is {result}")
 
+    def worker_health_check(self):
+        while True:
+            worker_ids = list(self.workers.keys())
+            for worker_id in worker_ids:
+                file_no = self.workers[worker_id][0].fileno()
+                if file_no == -1:
+                    self.workers.pop(worker_id)
+                    self.worker_status.pop(worker_id)
+                    if worker_id in self.assigned_tasks:
+                        self.message_queue.put(self.assigned_tasks[worker_id])
+                        self.assigned_tasks.pop(worker_id)
+                    print(f"[INFO] Worker {worker_id} disconnected from server")
+                else:
+                    print(f"[INFO] Worker {worker_id} health check passed with file no {file_no}")
+            time.sleep(1)
+                
+
     def handle_worker_send(self, worker_socket, worker_address, worker_id):
         while True:
             if self.worker_status[worker_id] == "busy":
@@ -83,6 +103,7 @@ class Server:
             if not self.message_queue.empty():
                 message = self.message_queue.get()
                 # print(f"[INFO] Message removed from message queue")
+                self.assigned_tasks[worker_id] = message
                 self.send_message(message, worker_socket)
                 self.worker_status[worker_id] = "busy"
                 # print(f"[INFO] Message sent to worker {worker_address}")
@@ -93,6 +114,7 @@ class Server:
         if self.wait_for_ack(worker_socket):
             # print(f"[INFO] Acknowledgment received from worker {worker_address}")
             result = self.receive_message(worker_socket)
+            self.assigned_tasks.pop(worker_id)
             result["timestamp"] = time.time()
             self.result_queue.put(result)
             # print(f"[INFO] Result received from worker {worker_address}: {result}")
@@ -115,6 +137,7 @@ class Server:
         # self.commanders.append((commander_socket, commander_address, commander_id))
         self.commanders[commander_id] = (commander_socket, commander_address)
         self.commander_status[commander_id] = "idle"
+        print(f"[INFO] Commander {commander_id} connected to server")
         # print(f"[INFO] Commander {commander_id} connected to server")
         # self.lock.release()
 
@@ -125,18 +148,11 @@ class Server:
             if message is None:
                 break
             # print(f"[INFO] Message received from commander {commander_id}: {message}")
-            string = message["message"]
-            no_of_chunks = 10
-            message_chunks = [string[i:i + len(string)//no_of_chunks] for i in range(0, len(string), len(string)//no_of_chunks)]
-            length = len(message_chunks)
-            self.send_message(length, commander_socket)
             input_task = message["message"]
             no_of_chunks = len(input_task) if len(input_task)<10 else 20
-            # message_chunks = [string[i:i + len(string)//no_of_chunks] for i in range(0, len(string), len(string)//no_of_chunks)]
-            # input_task is a list of values, divide it into chunks
             message_chunks = [input_task[i:i + len(input_task)//no_of_chunks] for i in range(0, len(input_task), len(input_task)//no_of_chunks)]
-            self.send_message(len(message_chunks), commander_socket)
-            # print(f"[INFO] Message length sent to commander {commander_id}")
+            length = len(message_chunks)
+            self.send_message(length, commander_socket)
             self.all_messages[commander_id] = Queue()
             for index, message_chunk in enumerate(message_chunks):
                 chunk = message.copy()
