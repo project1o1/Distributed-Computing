@@ -1,12 +1,20 @@
+import time
 
 
-func ='''
-def lowercase(message : str) -> str:
-    return message.lower()
+def mul(values):
+    result = []
+    for value in values:
+        for i in range(1, value):
+            value *= i
 
-'''
-exec(func)
-# print(lowercase("Sai Vishal"))
-ans = eval("lowercase('Sai Vishal')")
+        result.append(value)
+    return "done"
 
-print(ans)
+
+user_input = [123456] * 100
+
+start = time.time()
+mul(user_input)
+end = time.time()
+
+print(end - start)

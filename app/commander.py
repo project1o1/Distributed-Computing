@@ -5,10 +5,17 @@ import inspect
 
 
 
-def uppercase(message : str) -> str:
-    return message.upper()
+def mul(values):
+    result = []
+    for value in values:
+        for i in range(1, value):
+            value *= i
 
-func = inspect.getsource(uppercase)
+        result.append(value)
+    return "done"
+    
+
+func = inspect.getsource(mul)
 
 
 class Commander(Client):
@@ -35,18 +42,20 @@ class Commander(Client):
 
     def start_message_loop(self):
         while True:
-            # user_input = input("Press Enter to send the function (or type 'exit' to quit): ")
-            user_input = "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal"
-            if user_input.lower() == 'exit':
-                break
+            user_input = input("Press Enter to send the function (or type 'exit' to quit): ")
+            # user_input = "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal"
+            user_input = [123456] * 100
+            # if user_input.lower() == 'exit':
+            #     break
             user_input = {
                 "function": func,
-                "function_name": "uppercase",
+                "function_name": "mul",
                 "message": user_input,
             }
             # user_input = input("Enter message to send (or type 'exit' to quit): ")
             # user_input = "sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal sai vishal "
             # time.sleep(.5)
+            start = time.time()
             self.send_message(user_input)
 
             length = self.receive_message()
@@ -57,11 +66,13 @@ class Commander(Client):
                 result[result_chunk["chunk_number"]] = result_chunk
                 print(f"[INFO] Received chunk {result_chunk['chunk_number']}")
                 length -= 1
-
             message = ""
             for i in range(len(result)):
                 message += result[i]["message"]+" "
+                # message += result[i]["message"]
             print(f"[INFO] Result received from server: {message}")
+            end = time.time()
+            print(end - start)
 
 c = Commander("127.0.0.1", PORT)
 

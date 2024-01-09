@@ -125,9 +125,11 @@ class Server:
             if message is None:
                 break
             # print(f"[INFO] Message received from commander {commander_id}: {message}")
-            string = message["message"]
-            no_of_chunks = 10
-            message_chunks = [string[i:i + len(string)//no_of_chunks] for i in range(0, len(string), len(string)//no_of_chunks)]
+            input_task = message["message"]
+            no_of_chunks = len(input_task) if len(input_task)<10 else 20
+            # message_chunks = [string[i:i + len(string)//no_of_chunks] for i in range(0, len(string), len(string)//no_of_chunks)]
+            # input_task is a list of values, divide it into chunks
+            message_chunks = [input_task[i:i + len(input_task)//no_of_chunks] for i in range(0, len(input_task), len(input_task)//no_of_chunks)]
             self.send_message(len(message_chunks), commander_socket)
             # print(f"[INFO] Message length sent to commander {commander_id}")
             self.all_messages[commander_id] = Queue()
