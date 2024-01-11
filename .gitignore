@@ -1,3 +1,6 @@
 client/__pycache__
 server/__pycache__
 test
+
+blender/server_blend_files
+blender/worker_blend_files

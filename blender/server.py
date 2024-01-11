@@ -8,6 +8,7 @@ from threading import Lock
 import nanoid
 import json
 import base64
+import os
 class Server:
     def __init__(self, IP, port):
         self.IP = IP
@@ -36,7 +37,7 @@ class Server:
         print(f"[INFO] Server listening on {self.IP}:{self.PORT}")
         threading.Thread(target=self.handle_result_queue).start()
         threading.Thread(target=self.order_messages).start()
-        threading.Thread(target=self.worker_health_check).start()
+        # threading.Thread(target=self.worker_health_check).start()
         while True:
             client_socket, client_address = self.server_socket.accept()
             self.send_ack(client_socket, "CONNECTED")  # Send acknowledgment for connection establishment
@@ -112,12 +113,12 @@ class Server:
 
     def handle_worker_receive(self, worker_socket, worker_address, worker_id):
         if self.wait_for_ack(worker_socket):
-            # print(f"[INFO] Acknowledgment received from worker {worker_address}")
+            print(f"[INFO] Acknowledgment received from worker {worker_address}")
             result = self.receive_message(worker_socket)
             self.assigned_tasks.pop(worker_id)
             result["timestamp"] = time.time()
             self.result_queue.put(result)
-            # print(f"[INFO] Result received from worker {worker_address}: {result}")
+            print(f"[INFO] Result received from worker {worker_address}: {result}")
             self.worker_status[worker_id] = "idle"
         
         # while True:
@@ -150,23 +151,36 @@ class Server:
             # print(f"[INFO] Message received from commander {commander_id}: {message}")
             input_file = message["file"]
             input_file = base64.b64decode(input_file)
-            
+            file_name = message["file_name"]
+            #create folder
+            if not os.path.exists('server_blend_files'):
+                os.makedirs('server_blend_files')
+            if not os.path.exists(f'server_blend_files/{commander_id}'):
+                os.makedirs(f'server_blend_files/{commander_id}')
             #save file
-            f = open("cube_diorama.blend", "wb")
+            f = open(f"server_blend_files/{commander_id}/{file_name}", "wb")
             f.write(input_file)
             f.close()
             print(f"[INFO] File received from commander {commander_id}")
 
-            # self.send_message(length, commander_socket)
-            
-            # self.all_messages[commander_id] = Queue()
-            # for index, message_chunk in enumerate(message_chunks):
-            #     chunk = message.copy()
-            #     chunk["message"] = message_chunk
-            #     self.add_message_to_queue(chunk, commander_id, index)
-            # self.result_lengths[commander_id] = length
-            # self.result_sent_lengths[commander_id] = 0
-            # self.commander_status[commander_id] = "busy"
+            no_of_frames = message["end_frame"] - message["start_frame"] + 1
+            self.all_messages[commander_id] = Queue()
+            self.result_lengths[commander_id] = no_of_frames
+            self.result_sent_lengths[commander_id] = 0
+            no_of_chunks = 10
+            task_id = nanoid.generate(size=10)
+            message["task_id"] = task_id
+            for i in range(no_of_chunks):
+                start_frame = message["start_frame"] + i * (no_of_frames // no_of_chunks)
+                end_frame = message["start_frame"] + (i + 1) * (no_of_frames // no_of_chunks) - 1
+                if i == no_of_chunks - 1:
+                    end_frame = message["end_frame"]
+                message_to_send = message.copy()
+                message_to_send["start_frame"] = start_frame
+                message_to_send["end_frame"] = end_frame
+                self.add_message_to_queue(message_to_send, commander_id, i)
+                
+                
 
     def add_message_to_queue(self, message, commander_id, index):
         message_received = {
@@ -179,6 +193,8 @@ class Server:
             }
         # self.message_queue.put(message_received)
         self.all_messages[commander_id].put(message_received)
+        print(f"[INFO] Message added to message queue")
+        # print(self.all_messages)
         # print(f"[INFO] Message added to message queue")
 
     def order_messages(self):
@@ -199,7 +215,7 @@ class Server:
             if not size_data:
                 print("[ERROR] Failed to receive message size data.")
                 return None
-
+            print(f"[INFO] Message size data received successfully. Waiting for message size... {size_data}")
             size = int(size_data.strip().decode('utf-8'))
             print(f"[INFO] Message size: {size}")
             self.send_ack(connection)  # Send acknowledgment for the message size
@@ -247,14 +263,16 @@ class Server:
 
             # Send the message in chunks with retries
             chunk_size = DATA_SIZE_PER_PACKET
+            count = 0
             remaining_size = size
             for i in range(0, size, chunk_size):
                 if remaining_size < chunk_size:
                     chunk_size = remaining_size
                 chunk = message_bytes[i:i + chunk_size]
                 remaining_size -= chunk_size
+                count += 1
                 conn.send(chunk)
-
+                print(f"[INFO] Chunk {count} sent successfully")
                 # Receive acknowledgment for the chunk
                 if not self.wait_for_ack(conn):
                     print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
@@ -282,6 +300,7 @@ class Server:
 
     def wait_for_ack(self, conn, expected_ack="ACK"):
         try:
+            print(f"[INFO] Waiting for acknowledgment: {expected_ack}")
             ack = conn.recv(ACKNOWLEDGEMENT_SIZE)
             return ack.decode('utf-8').strip() == expected_ack
         except socket.error as e:

@@ -37,9 +37,10 @@ class Commander(Client):
 
             message = {
                 # "file": file,
+                "file_name": "cube_diorama.blend",
                 "file": base64.b64encode(file).decode('utf-8'),
                 "start_frame": 1,
-                "end_frame": 250,
+                "end_frame": 50,
                 }
             # send file
             self.send_message(message)
