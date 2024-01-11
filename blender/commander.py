@@ -30,7 +30,7 @@ class Commander(Client):
             user_input = input("Press Enter to send the function (or type 'exit' to quit): ")
             
             # read file
-            f = open("/home/pavanmanishd/Desktop/Projects/Distributed-Computing/blender/cube_diorama/cube_diorama.blend", "rb")
+            f = open("./cube_diorama/cube_diorama.blend", "rb")
             file = f.read()
 
             start = time.time()

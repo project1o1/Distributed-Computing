@@ -1,6 +1,6 @@
 import nanoid
 import socket
-from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE
+from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE, DATA_SIZE_PER_PACKET
 import time
 import json
 
@@ -44,9 +44,9 @@ class Client:
             if not self.wait_for_ack():
                 print("[ERROR] Failed to send message size acknowledgment")
                 return
-
+            print(f"[INFO] Message size acknowledgment received. Sending message...")
             # Send the message in chunks with retries
-            chunk_size = 1024
+            chunk_size = DATA_SIZE_PER_PACKET
             remaining_size = size
             for i in range(0, size, chunk_size):
                 if remaining_size < chunk_size:
@@ -87,7 +87,7 @@ class Client:
             chunks = []
             remaining_size = size
             while remaining_size > 0:
-                chunk = self.socket.recv(min(1024, remaining_size))
+                chunk = self.socket.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
                 if not chunk:
                     print("[ERROR] Failed to receive message chunk.")
                     return None

@@ -1,7 +1,7 @@
 # server.py
 import socket
 import threading
-from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE, PORT
+from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE, PORT, DATA_SIZE_PER_PACKET
 import time
 from queue import Queue
 from threading import Lock
@@ -155,6 +155,7 @@ class Server:
             f = open("cube_diorama.blend", "wb")
             f.write(input_file)
             f.close()
+            print(f"[INFO] File received from commander {commander_id}")
 
             # self.send_message(length, commander_socket)
             
@@ -206,7 +207,7 @@ class Server:
             chunks = []
             remaining_size = size
             while remaining_size > 0:
-                chunk = connection.recv(min(1024, remaining_size))
+                chunk = connection.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
                 if not chunk:
                     print("[ERROR] Failed to receive message chunk.")
                     return None
@@ -245,7 +246,7 @@ class Server:
                 return
 
             # Send the message in chunks with retries
-            chunk_size = 1024
+            chunk_size = DATA_SIZE_PER_PACKET
             remaining_size = size
             for i in range(0, size, chunk_size):
                 if remaining_size < chunk_size:
