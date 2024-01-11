@@ -41,7 +41,7 @@ class Worker(Client):
             message = self.receive_message()
             if message is None:
                 break
-            print("[INFO] Message received")
+            print("[INFO] Blender file received")
             # print(f"[INFO] Message received: {message}")
             task = message["message"]
             task_id = task["task_id"]
@@ -60,7 +60,7 @@ class Worker(Client):
             f = open(f"{folder_name}/{file_name}", "wb")
             f.write(file)
             f.close()
-            print(f"[INFO] File {file_name} written to {folder_name}")            
+            print(f"[INFO] File {file_name} written to {folder_name}")          
 
             
             self.send_ack()
@@ -81,11 +81,11 @@ class Worker(Client):
             message.pop("message")
             message["message_type"] = "result"
             message["message"] = "success"
-            print(f"[INFO] Sending result for task {task_id}")
-            print(f"[INFO] Acknowledgment sent for task {task_id}")
+            # print(f"[INFO] Sending result for task {task_id}")
+            # print(f"[INFO] Acknowledgment sent for task {task_id}")
 
             self.send_message(message)
-            print(f"[INFO] Result sent for task {task_id}")
+            # print(f"[INFO] Result sent for task {task_id}")
 
             # result = eval(function_name+"(input_task)")
             # self.send_ack()

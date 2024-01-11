@@ -71,6 +71,7 @@ class Server:
             commander_socket, commander_address = self.commanders[commander_id]
             # self.send_ack(commander_socket, "RESULT")
             self.send_message(result, commander_socket)
+            print(f"[INFO] Result sent to commander {commander_id}")
             # print(f"[INFO] Result sent to commander {commander_id}")
             # self.commander_status[commander_id] = "idle"
             self.result_sent_lengths[commander_id] += 1
@@ -113,12 +114,12 @@ class Server:
 
     def handle_worker_receive(self, worker_socket, worker_address, worker_id):
         if self.wait_for_ack(worker_socket):
-            print(f"[INFO] Acknowledgment received from worker {worker_address}")
+            # print(f"[INFO] Acknowledgment received from worker {worker_address}")
             result = self.receive_message(worker_socket)
             self.assigned_tasks.pop(worker_id)
             result["timestamp"] = time.time()
             self.result_queue.put(result)
-            print(f"[INFO] Result received from worker {worker_address}: {result}")
+            # print(f"[INFO] Result received from worker {worker_address}: {result}")
             self.worker_status[worker_id] = "idle"
         
         # while True:
@@ -170,6 +171,7 @@ class Server:
             no_of_chunks = 10
             task_id = nanoid.generate(size=10)
             message["task_id"] = task_id
+            self.send_message(no_of_chunks, commander_socket)
             for i in range(no_of_chunks):
                 start_frame = message["start_frame"] + i * (no_of_frames // no_of_chunks)
                 end_frame = message["start_frame"] + (i + 1) * (no_of_frames // no_of_chunks) - 1
@@ -179,6 +181,11 @@ class Server:
                 message_to_send["start_frame"] = start_frame
                 message_to_send["end_frame"] = end_frame
                 self.add_message_to_queue(message_to_send, commander_id, i)
+            self.result_lengths[commander_id] = no_of_chunks
+            self.result_sent_lengths[commander_id] = 0
+            self.commander_status[commander_id] = "busy"
+
+        
                 
                 
 
@@ -214,12 +221,12 @@ class Server:
             size_data = connection.recv(HEADER_SIZE)
             if not size_data:
                 print("[ERROR] Failed to receive message size data.")
-                return None
-            print(f"[INFO] Message size data received successfully. Waiting for message size... {size_data}")
+            #     return None
+            # print(f"[INFO] Message size data received successfully. Waiting for message size... {size_data}")
             size = int(size_data.strip().decode('utf-8'))
-            print(f"[INFO] Message size: {size}")
+            # print(f"[INFO] Message size: {size}")
             self.send_ack(connection)  # Send acknowledgment for the message size
-            print(f"[INFO] Message size acknowledgment sent successfully. Waiting for message...")
+            # print(f"[INFO] Message size acknowledgment sent successfully. Waiting for message...")
             chunks = []
             remaining_size = size
             while remaining_size > 0:
@@ -263,16 +270,16 @@ class Server:
 
             # Send the message in chunks with retries
             chunk_size = DATA_SIZE_PER_PACKET
-            count = 0
+            # count = 0
             remaining_size = size
             for i in range(0, size, chunk_size):
                 if remaining_size < chunk_size:
                     chunk_size = remaining_size
                 chunk = message_bytes[i:i + chunk_size]
                 remaining_size -= chunk_size
-                count += 1
+                # count += 1
                 conn.send(chunk)
-                print(f"[INFO] Chunk {count} sent successfully")
+                # print(f"[INFO] Chunk {count} sent successfully")
                 # Receive acknowledgment for the chunk
                 if not self.wait_for_ack(conn):
                     print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
@@ -300,7 +307,7 @@ class Server:
 
     def wait_for_ack(self, conn, expected_ack="ACK"):
         try:
-            print(f"[INFO] Waiting for acknowledgment: {expected_ack}")
+            # print(f"[INFO] Waiting for acknowledgment: {expected_ack}")
             ack = conn.recv(ACKNOWLEDGEMENT_SIZE)
             return ack.decode('utf-8').strip() == expected_ack
         except socket.error as e:

@@ -40,25 +40,27 @@ class Commander(Client):
                 "file_name": "cube_diorama.blend",
                 "file": base64.b64encode(file).decode('utf-8'),
                 "start_frame": 1,
-                "end_frame": 50,
+                "end_frame": 10,
                 }
             # send file
             self.send_message(message)
             print(f"[INFO] File sent to server")
 
+            length = self.receive_message()
+            result = {}
 
-
-
-            # # self.send_message(user_input)
-            # length = self.receive_message()
-
-            # result = {}
-            # while length > 0:
-            #     result_chunk = self.receive_message()
-            #     result[result_chunk["chunk_number"]] = result_chunk
-            #     print(f"[INFO] Received chunk {result_chunk['chunk_number']}")
-            #     length -= 1
-            # end = time.time()
+            while length > 0:
+                result_chunk = self.receive_message()
+                result[result_chunk["chunk_number"]] = result_chunk
+                print(f"[INFO] Received chunk {result_chunk['chunk_number']}")
+                length -= 1
+            message = ""
+            for i in range(len(result)):
+                message += result[i]["message"]+" "
+                # message += result[i]["message"]
+            print(f"[INFO] Result received from server: {message}")
+            end = time.time()
+            print(end - start)
 
 c = Commander("127.0.0.1", PORT)
 

@@ -21,7 +21,7 @@ class Client:
 
     def send_ack(self, message="ACK"):
         try:
-            print(f"[INFO] Sending acknowledgment: {message}")
+            # print(f"[INFO] Sending acknowledgment: {message}")
             self.socket.send(message.encode('utf-8').ljust(ACKNOWLEDGEMENT_SIZE))
         except socket.error as e:
             print(f"[ERROR] Failed to send acknowledgment: {e}")
@@ -87,11 +87,11 @@ class Client:
 
             chunks = []
             remaining_size = size
-            count = 0
+            # count = 0
             while remaining_size > 0:
                 chunk = self.socket.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
-                count += 1
-                print(f"[INFO] Received chunk {count}")
+                # count += 1
+                # print(f"[INFO] Received chunk {count}")
                 if not chunk:
                     print("[ERROR] Failed to receive message chunk.")
                     return None
