@@ -84,20 +84,14 @@ class Server:
                 worker_socket, worker_address = self.workers[worker_id]
                 
                 try:
-                    # Try to get the file descriptor associated with the socket
-                    file_no = worker_socket.fileno()
-                    if file_no == -1:
-                        # If the file descriptor is -1, the socket is likely closed
+                    if worker_socket.fileno() == -1:
                         self.workers.pop(worker_id)
                         self.worker_status.pop(worker_id)
                         if worker_id in self.assigned_tasks:
                             self.message_queue.put(self.assigned_tasks[worker_id])
                             self.assigned_tasks.pop(worker_id)
                         print(f"[INFO] Worker {worker_id} disconnected from server")
-                    else:
-                        print(f"[INFO] Worker {worker_id} is connected to server with file descriptor {file_no}")
                 except KeyError:
-                    # KeyError indicates that the worker_id is not in self.worker_status
                     pass
 
             time.sleep(1)
@@ -113,7 +107,17 @@ class Server:
                 message = self.message_queue.get()
                 # print(f"[INFO] Message removed from message queue")
                 self.assigned_tasks[worker_id] = message
-                self.send_message(message, worker_socket)
+                try:
+                    self.send_message(message, worker_socket)
+                except Exception as e:
+                    self.message_queue.put(message)
+                    self.workers.pop(worker_id)
+                    self.worker_status.pop(worker_id)
+                    if worker_id in self.assigned_tasks:
+                        self.message_queue.put(self.assigned_tasks[worker_id])
+                        self.assigned_tasks.pop(worker_id)
+                    print(f"[INFO] Worker {worker_id} disconnected from server")
+                    continue
                 self.worker_status[worker_id] = "busy"
                 # print(f"[INFO] Message sent to worker {worker_address}")
                 self.handle_worker_receive(worker_socket, worker_address, worker_id)
@@ -274,6 +278,7 @@ class Server:
 
         except socket.error as e:
             print(f"[ERROR] Failed to send message: {e}")
+            return Exception(f"Failed to send message: {e}")
             
 
     def send_ack(self, conn, message="ACK"):
