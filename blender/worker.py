@@ -1,43 +1,55 @@
-import uvicorn
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import requests
-import socket
+from client import Client
+from constants import PORT
 
-server = "http://localhost:5000"
+class Worker(Client):
+    def __init__(self, IP, port):
+        super().__init__(IP, port)
+        self.type = "worker"
+        self.socket.connect((self.IP, self.port))
+        if self.wait_for_ack(expected_ack="CONNECTED"):
+            self.send_message(self.type)
+            if self.wait_for_ack():
+                self.send_message(self.ID)
+                if self.wait_for_ack():
+                    print(f"[INFO] Client {self.ID} connected to server")
+                    # self.start_message_loop()
+                    self.start_task_loop()
+                else:
+                    print(f"[ERROR] Failed to connect to server")
+                    exit(1)
+            else:
+                print(f"[ERROR] Failed to connect to server")
+                exit(1)
+        else:
+            print(f"[ERROR] Failed to connect to server")
+            exit(1)
 
-
-app = FastAPI()
-
-# CORS allow all origins
-origins = [ "*" ]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"])
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-
-def get_ip_address():
-    hostname = socket.gethostname()
-    ip_address = socket.gethostbyname(hostname)
-    return ip_address
-
-def connect():
-    response = requests.post(f"{server}/connect", json={
-    "port": 8001,
-    "ip": get_ip_address()
-    })
-
-    print(response.json())
-
+    def start_message_loop(self):
+        while True:
+            user_input = input("Enter message to send (or type 'exit' to quit): ")
+            if user_input.lower() == 'exit':
+                break
+            self.send_message(user_input)
+    
+    def start_task_loop(self):
+        while True:
+            message = self.receive_message()
+            if message is None:
+                break
+            print(f"[INFO] Message received: {message}")
+            task = message["message"]
+            input_task = task["message"]
+            function = task["function"]
+            function_name = task["function_name"]
+            exec(function)
+            result = eval(function_name+"(input_task)")
+            self.send_ack()
+            message["message_type"] = "result"
+            message["message"] = result
+            self.send_message(message)
+            # if message["message_type"] == "task":
+            #     self.send_ack()
+            #     self.send_ack()
 
 if __name__ == "__main__":
-    connect()
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    w = Worker("127.0.0.1", PORT)
