@@ -1,6 +1,9 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import nanoid
+import requests
 
 
 app = FastAPI()
@@ -19,16 +22,27 @@ app.add_middleware(
 async def root():
     return {"message": "Hello World"}
 
-connected_workers = []
+connected_workers = {}
+
+class Connection(BaseModel):
+    port: int
+    ip: str
 
 @app.post("/connect")
-async def connect(port: int, ip: str):
-    connected_workers.append({
-        "port": port,
-        "ip": ip
-    })
+async def connect(connection: Connection):
+    # connected_workers.append({
+    #     "port": connection.port,
+    #     "ip": connection.ip
+    # })
+
+    id = nanoid.generate()
+
+    connected_workers[id] = {
+        "port": connection.port,
+        "ip": connection.ip
+    }
     print(connected_workers)
-    return {"message": "Connected"}
+    return {"message": "Connected", "id": id}
 
 
 if __name__ == "__main__":
