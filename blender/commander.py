@@ -2,6 +2,7 @@ from client import Client
 import time
 from constants import PORT
 import base64
+import os
 
 class Commander(Client):
     def __init__(self, IP, port):
@@ -30,14 +31,14 @@ class Commander(Client):
             user_input = input("Press Enter to send the function (or type 'exit' to quit): ")
             
             # read file
-            f = open("./cube_diorama/cube_diorama.blend", "rb")
+            f = open("./cube_diorama/jiggly_pudding.blend", "rb")
             file = f.read()
 
             start = time.time()
 
             message = {
                 # "file": file,
-                "file_name": "cube_diorama.blend",
+                "file_name": "jiggly_pudding.blend",
                 "file": base64.b64encode(file).decode('utf-8'),
                 "start_frame": 1,
                 "end_frame": 10,
@@ -54,13 +55,24 @@ class Commander(Client):
                 result[result_chunk["chunk_number"]] = result_chunk
                 print(f"[INFO] Received chunk {result_chunk['chunk_number']}")
                 length -= 1
-            message = ""
+            # message = ""
+            # for i in range(len(result)):
+            #     message += result[i]["message"]+" "
+            #     # message += result[i]["message"]
+            # print(f"[INFO] Result received from server: {message}")
+            # end = time.time()
+            # print(end - start)
+            
+            output_folder = "commander_output"
+            if not os.path.exists(output_folder):
+                os.mkdir(output_folder)
+            
             for i in range(len(result)):
-                message += result[i]["message"]+" "
-                # message += result[i]["message"]
-            print(f"[INFO] Result received from server: {message}")
-            end = time.time()
-            print(end - start)
+                for j in result[i]["message"]:
+                    f = open(f"{output_folder}/{j}.png", "wb")
+                    f.write(base64.b64decode(result[i]["message"][j]))
+                    f.close()
+                
 
 c = Commander("127.0.0.1", PORT)
 

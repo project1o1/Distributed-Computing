@@ -1,20 +1,11 @@
-import time
+import subprocess
+import os
 
+# blender_path = '"C:/Program Files/Blender Foundation/Blender 4.0/blender.exe"'
+# output_format = "PNG"
+# folder_name = '"cube_diorama"'
+# file_name = '"jiggly_pudding.blend"'
+# start_frame = 1
+# end_frame = 10
 
-def mul(values):
-    result = []
-    for value in values:
-        for i in range(1, value):
-            value *= i
-
-        result.append(value)
-    return "done"
-
-
-user_input = [123456] * 100
-
-start = time.time()
-mul(user_input)
-end = time.time()
-
-print(end - start)
+# subprocess.call(f'{blender_path} -b {folder_name}/{file_name} -o "C:/Users/visha/Desktop/Stuff/distributed_computing/blender/blender_output/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=True)
