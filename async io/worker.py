@@ -3,6 +3,7 @@ from constants import PORT
 import os
 import base64
 import subprocess
+import threading
 
 blender_path = "C:/Program Files/Blender Foundation/Blender 4.0/blender.exe"
 output_format = "PNG"
@@ -57,11 +58,12 @@ class Worker(Client):
 
             
             # self.send_ack()
-
+            
             # execute blender
             # output_path = os.path.join(folder_name, f'frame_{frame_num:04d}')
             folder_name = os.path.abspath(folder_name)
             # command = f'{blender_path} -b {folder_name}/{file_name} -o {folder_name}/images/ -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a'
+            threading.Thread(target=self.send_images, args=(folder_name, start_frame, end_frame)).start()
             subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=False)
             # stdout, stderr = process.communicate()
 
@@ -72,13 +74,13 @@ class Worker(Client):
             #     print("Render completed successfully.")
 
             # send result
-            result = {}
-            images_list = os.listdir(folder_name+"/images/")
-            for i in range(len(images_list)):
-                f = open(f"{folder_name}/images/{images_list[i]}", "rb")
-                file = f.read()
-                result[i] = base64.b64encode(file).decode('utf-8')
-                f.close()
+            # result = {}
+            # images_list = os.listdir(folder_name+"/images/")
+            # for i in range(len(images_list)):
+            #     f = open(f"{folder_name}/images/{images_list[i]}", "rb")
+            #     file = f.read()
+            #     result[i] = base64.b64encode(file).decode('utf-8')
+            #     f.close()
             # for i in range(start_frame, end_frame+1):
             #     f = open(f"{folder_name}/{'0'*len(str(i))}{i}.png", "rb")
             #     file = f.read()
@@ -87,13 +89,13 @@ class Worker(Client):
             
             
             # result = message
-            message.pop("message")
-            message["message_type"] = "result"
-            message["message"] = result
+            # message.pop("message")
+            # message["message_type"] = "result"
+            # message["message"] = result
             # print(f"[INFO] Sending result for task {task_id}")
             # print(f"[INFO] Acknowledgment sent for task {task_id}")
 
-            self.send_message(message)
+            # self.send_message(message)
             # print(f"[INFO] Result sent for task {task_id}")
 
             # result = eval(function_name+"(input_task)")
@@ -101,6 +103,23 @@ class Worker(Client):
             # message["message_type"] = "result"
             # message["message"] = result
             # self.send_message(message)
+    
+    def send_images(self, folder_name, start_frame, end_frame):
+        i=0
+        while i < end_frame-start_frame+1:
+            images = os.listdir(folder_name+"/images/")
+            if len(images) == 0:
+                continue
+            f = open(f"{folder_name}/images/{images[0]}", "rb")
+            file = f.read()
+            self.send_message({
+                "frame": base64.b64encode(file).decode('utf-8'),
+                # "frame_num": int(images[0])+start_frame
+                "frame_num": i+start_frame
+            })
+            os.remove(f"{folder_name}/images/{images[0]}")
+            i+=1
+            print(f"[INFO] Sent frame {i}")
 
 if __name__ == "__main__":
     w = Worker("192.168.0.101", PORT)

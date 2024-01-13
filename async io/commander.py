@@ -25,25 +25,39 @@ class Commander(Client):
 
             start = time.time()
 
+            start_frame = 1
+            end_frame = 30
+            
             message = {
                 # "file": file,
                 "file_name": "jiggly_pudding.blend",
                 "file": base64.b64encode(file).decode('utf-8'),
-                "start_frame": 1,
-                "end_frame": 300,
+                "start_frame": start_frame,
+                "end_frame": end_frame,
                 }
             # send file
             self.send_message(message)
             print(f"[INFO] File sent to server")
 
-            length = self.receive_message()
-            result = {}
 
-            while length > 0:
-                result_chunk = self.receive_message()
-                result[result_chunk["chunk_number"]] = result_chunk
-                print(f"[INFO] Received chunk {result_chunk['chunk_number']}")
-                length -= 1
+            output_folder = "commander_output"
+            if not os.path.exists(output_folder):
+                os.mkdir(output_folder)
+            
+            # length = self.receive_message()
+            no_of_frames = end_frame - start_frame + 1
+            for i in range(no_of_frames):
+                message = self.receive_message()
+                if message is None:
+                    break
+                print(f"[INFO] Received result for frame {i+1}")
+                frame_num = message["frame_num"]
+                f = open(f"{output_folder}/{frame_num}.png", "wb")
+                f.write(base64.b64decode(message["frame"]))
+                f.close()
+
+                
+           
             # message = ""
             # for i in range(len(result)):
             #     message += result[i]["message"]+" "
@@ -51,16 +65,9 @@ class Commander(Client):
             # print(f"[INFO] Result received from server: {message}")
             # end = time.time()
             # print(end - start)
-            
-            output_folder = "commander_output"
-            if not os.path.exists(output_folder):
-                os.mkdir(output_folder)
-            
-            for i in range(len(result)):
-                for j in result[i]["message"]:
-                    f = open(f"{output_folder}/{j}.png", "wb")
-                    f.write(base64.b64decode(result[i]["message"][j]))
-                    f.close()
+   
+            end = time.time()
+            print(f"[INFO] Rendered {end_frame} frames in {end - start} seconds")
                 
 
 c = Commander("192.168.0.102", PORT)

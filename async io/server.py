@@ -109,25 +109,22 @@ class Server:
                 self.send_message(message, worker_socket)
                 self.worker_status[worker_id] = "busy"
                 # print(f"[INFO] Message sent to worker {worker_address}")
-                self.handle_worker_receive(worker_socket, worker_address, worker_id)
+                self.handle_worker_receive(worker_socket, worker_address, worker_id,message["commander_id"], message["message"]["start_frame"], message["message"]["end_frame"])
             # self.lock.release()
 
-    def handle_worker_receive(self, worker_socket, worker_address, worker_id):
-        result = self.receive_message(worker_socket)
-        self.assigned_tasks.pop(worker_id)
-        result["timestamp"] = time.time()
-        self.result_queue.put(result)
-        # print(f"[INFO] Result received from worker {worker_address}: {result}")
+    def handle_worker_receive(self, worker_socket, worker_address, worker_id, commander_id, start_frame, end_frame):
+        
+        i = 0
+        while i < end_frame - start_frame + 1:
+            message = self.receive_message(worker_socket)
+            if message is None:
+                break
+            message["commander_id"] = commander_id
+            self.result_queue.put(message)
+            print(f"[INFO] Message added to result queue")
+            i += 1
         self.worker_status[worker_id] = "idle"
         
-        # while True:
-            # message = self.receive_message(worker_socket)
-            # if message is None:
-            #     break
-            # self.lock.acquire()
-            # print(f"[INFO] Message received from worker {worker_address}: {message}")
-            # self.result_queue.put(message)
-            # print(f"[INFO] Message added to result queue")
 
     def handle_commander(self, commander_socket, commander_address):
         # print(f"[INFO] Connection established with commander {commander_address}")
@@ -168,7 +165,7 @@ class Server:
             no_of_chunks = 10
             task_id = nanoid.generate(size=10)
             message["task_id"] = task_id
-            self.send_message(no_of_chunks, commander_socket)
+            # self.send_message(no_of_chunks, commander_socket)
             for i in range(no_of_chunks):
                 start_frame = message["start_frame"] + i * (no_of_frames // no_of_chunks)
                 end_frame = message["start_frame"] + (i + 1) * (no_of_frames // no_of_chunks) - 1
