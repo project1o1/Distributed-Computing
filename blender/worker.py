@@ -2,6 +2,11 @@ from client import Client
 from constants import PORT
 import os
 import base64
+import subprocess
+
+blender_path = "C:/Program Files/Blender Foundation/Blender 4.0/blender.exe"
+output_format = "PNG"
+
 class Worker(Client):
     def __init__(self, IP, port):
         super().__init__(IP, port)
@@ -56,6 +61,7 @@ class Worker(Client):
                 os.mkdir(folder_name)
             
             print(f"[INFO] Received task {task_id} with file {file_name} from frame {start_frame} to {end_frame}")
+            # print(task)
             # write file
             f = open(f"{folder_name}/{file_name}", "wb")
             f.write(file)
@@ -65,13 +71,29 @@ class Worker(Client):
             
             self.send_ack()
 
-            #execute blender
-            # os.system(f"blender -b {folder_name}/{file_name} -s {start_frame} -e {end_frame} -a")
+            # execute blender
+            # output_path = os.path.join(folder_name, f'frame_{frame_num:04d}')
+            folder_name = os.path.abspath(folder_name)
+            # command = f'{blender_path} -b {folder_name}/{file_name} -o {folder_name}/images/ -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a'
+            subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=True)
+            # stdout, stderr = process.communicate()
 
-            # # send result
-            # result = {}
+            # Check for any errors
+            # if return_code != 0:
+            #     print(f"Error")
+            # else:
+            #     print("Render completed successfully.")
+
+            # send result
+            result = {}
+            images_list = os.listdir(folder_name+"/images/")
+            for i in range(len(images_list)):
+                f = open(f"{folder_name}/images/{images_list[i]}", "rb")
+                file = f.read()
+                result[i] = base64.b64encode(file).decode('utf-8')
+                f.close()
             # for i in range(start_frame, end_frame+1):
-            #     f = open(f"{folder_name}/render_{i}.png", "rb")
+            #     f = open(f"{folder_name}/{'0'*len(str(i))}{i}.png", "rb")
             #     file = f.read()
             #     result[i] = file
             #     f.close()
@@ -80,7 +102,7 @@ class Worker(Client):
             # result = message
             message.pop("message")
             message["message_type"] = "result"
-            message["message"] = "success"
+            message["message"] = result
             # print(f"[INFO] Sending result for task {task_id}")
             # print(f"[INFO] Acknowledgment sent for task {task_id}")
 
