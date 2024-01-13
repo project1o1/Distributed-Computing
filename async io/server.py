@@ -36,7 +36,6 @@ class Server:
         self.server_socket.listen()
         print(f"[INFO] Server listening on {self.IP}:{self.PORT}")
         threading.Thread(target=self.handle_result_queue).start()
-
         threading.Thread(target=self.order_messages).start()
         # threading.Thread(target=self.worker_health_check).start()
         while True:
@@ -72,9 +71,7 @@ class Server:
             commander_socket, commander_address = self.commanders[commander_id]
             # self.send_ack(commander_socket, "RESULT")
             self.send_message(result, commander_socket)
-            frame_num = result["frame_num"]
-            print(f"[INFO] Frame {frame_num} sent to commander {commander_id}")
-            # print(f"[INFO] Result Queue size: {self.result_queue.qsize()}")
+            print(f"[INFO] Result sent to commander {commander_id}")
             # print(f"[INFO] Result sent to commander {commander_id}")
             # self.commander_status[commander_id] = "idle"
             self.result_sent_lengths[commander_id] += 1
@@ -112,10 +109,11 @@ class Server:
                 self.send_message(message, worker_socket)
                 self.worker_status[worker_id] = "busy"
                 # print(f"[INFO] Message sent to worker {worker_address}")
-                self.handle_worker_receive(worker_socket, worker_id,message["commander_id"], message["message"]["start_frame"], message["message"]["end_frame"])
+                self.handle_worker_receive(worker_socket, worker_address, worker_id,message["commander_id"], message["message"]["start_frame"], message["message"]["end_frame"])
             # self.lock.release()
 
-    def handle_worker_receive(self, worker_socket, worker_id, commander_id, start_frame, end_frame):
+    def handle_worker_receive(self, worker_socket, worker_address, worker_id, commander_id, start_frame, end_frame):
+        
         i = 0
         res_queue = Queue()
         threading.Thread(target=send_result).start()
@@ -124,7 +122,8 @@ class Server:
             if message is None:
                 break
             message["commander_id"] = commander_id
-            res_queue.put(message)
+            self.result_queue.put(message)
+            print(f"[INFO] Message added to result queue")
             i += 1
         self.worker_status[worker_id] = "idle"
 
@@ -183,7 +182,7 @@ class Server:
                 message_to_send["start_frame"] = start_frame
                 message_to_send["end_frame"] = end_frame
                 self.add_message_to_queue(message_to_send, commander_id, i)
-            self.result_lengths[commander_id] = no_of_frames
+            self.result_lengths[commander_id] = no_of_chunks
             self.result_sent_lengths[commander_id] = 0
             self.commander_status[commander_id] = "busy"
 
