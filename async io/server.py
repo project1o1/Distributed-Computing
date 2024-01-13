@@ -23,7 +23,8 @@ class Server:
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.IP, self.PORT))
         self.message_queue = Queue()
-        self.result_queue = Queue()
+        self.result_queue_1 = Queue()
+        self.result_queue_2 = Queue()
         self.all_messages = {}
 
         self.result_lengths = {}
@@ -59,8 +60,9 @@ class Server:
             elif client_type == "commander":
                 threading.Thread(target=self.handle_commander, args=(client_socket, client_address)).start()
 
-    def handle_result_queue(self):
-        while True:
+    def handle_result_queue(self,result_queue,num):
+        i=0
+        while i<num:
             result = self.result_queue.get()
             # print(f"[INFO] Result Queue size: {self.result_queue.qsize()}")
             commander_id = result["commander_id"]
@@ -78,6 +80,7 @@ class Server:
             if self.result_sent_lengths[commander_id] == self.result_lengths[commander_id]:
                 self.commander_status[commander_id] = "idle"
             # print(f"[INFO] Result is {result}")
+            i+=1
 
     def worker_health_check(self):
         while True:
@@ -114,14 +117,33 @@ class Server:
 
     def handle_worker_receive(self, worker_socket, worker_address, worker_id, commander_id, start_frame, end_frame):
         i = 0
+        result_queue = self.result_queue_2
         while i < end_frame - start_frame + 1:
-            message = self.receive_message(worker_socket)
-            if message is None:
-                break
-            message["commander_id"] = commander_id
-            self.result_queue.put(message)
-            print(f"[INFO] Message added to result queue")
-            i += 1
+            if result_queue.qsize() < 10:
+                message = self.receive_message(worker_socket)
+                if message is None:
+                    break
+                message["commander_id"] = commander_id
+
+                result_queue.put(message)
+                print(f"[INFO] Message added to result queue")
+                i += 1
+            else:
+                threading.Thread(target=self.handle_result_queue, args=(result_queue,num,)).start()
+                result_queue = self.result_queue_1
+
+            # message = self.receive_message(worker_socket)
+            # if message is None:
+            #     break
+            # message["commander_id"] = commander_id
+
+            # if self.result_queue_1.qsize() > self.result_queue_2.qsize():
+            #     self.result_queue_2.put(message)
+            # else:
+            #     self.result_queue_1.put(message)
+
+            # print(f"[INFO] Message added to result queue")
+            # i += 1
         self.worker_status[worker_id] = "idle"
 
 
