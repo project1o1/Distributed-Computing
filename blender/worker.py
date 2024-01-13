@@ -75,7 +75,7 @@ class Worker(Client):
             # output_path = os.path.join(folder_name, f'frame_{frame_num:04d}')
             folder_name = os.path.abspath(folder_name)
             # command = f'{blender_path} -b {folder_name}/{file_name} -o {folder_name}/images/ -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a'
-            subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=True)
+            subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=False)
             # stdout, stderr = process.communicate()
 
             # Check for any errors
@@ -116,4 +116,4 @@ class Worker(Client):
             # self.send_message(message)
 
 if __name__ == "__main__":
-    w = Worker("127.0.0.1", PORT)
+    w = Worker("192.168.0.101", PORT)
