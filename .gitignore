@@ -4,3 +4,6 @@ test
 
 blender/server_blend_files
 blender/worker_blend_files
+blender/blender_output
+blender/cube_diorama
+blender/commander_output
