@@ -103,7 +103,15 @@ class Client:
                 # self.send_ack()  # Send acknowledgment for each chunk
 
             # message_bytes = b''.join(chunks)
-            message_bytes = self.socket.recv(size)
+            message_bytes = b''
+            remaining_size = size
+            while remaining_size > 0:
+                chunk = self.socket.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
+                if not chunk:
+                    print("[ERROR] Failed to receive message chunk.")
+                    return None
+                message_bytes += chunk
+                remaining_size -= len(chunk)
             message_json = message_bytes.decode('utf-8')
             message = json.loads(message_json)  # Decode the JSON message
 

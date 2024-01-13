@@ -221,24 +221,17 @@ class Server:
             #     return None
             # print(f"[INFO] Message size data received successfully. Waiting for message size... {size_data}")
             size = int(size_data.strip().decode('utf-8'))
-            # print(f"[INFO] Message size: {size}")
-            # self.send_ack(connection)  # Send acknowledgment for the message size
-            # print(f"[INFO] Message size acknowledgment sent successfully. Waiting for message...")
-            # chunks = []
-            # remaining_size = size
-            # while remaining_size > 0:
-            #     chunk = connection.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
-            #     if not chunk:
-            #         print("[ERROR] Failed to receive message chunk.")
-            #         return None
-
-            #     chunks.append(chunk)
-            #     remaining_size -= len(chunk)
-
-                # self.send_ack(connection)  # Send acknowledgment for each chunk
-
-            # message_bytes = b''.join(chunks)
-            message_bytes = connection.recv(size)
+            print(f"[INFO] Message size received successfully. Waiting for message... {size}")
+            # message_bytes = connection.recv(size)
+            message_bytes = b''
+            remaining_size = size
+            while remaining_size > 0:
+                chunk = connection.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
+                if not chunk:
+                    print("[ERROR] Failed to receive message chunk.")
+                    return None
+                message_bytes += chunk
+                remaining_size -= len(chunk)
             message_json = message_bytes.decode('utf-8')
             message = json.loads(message_json)  # Decode the JSON message
 
@@ -256,6 +249,7 @@ class Server:
 
             # Send the size of the message
             size = len(message_bytes)
+            print(f"[INFO] Sending message of size: {size}")
             size_data = str(size).encode('utf-8').ljust(HEADER_SIZE)
             # print(f"[INFO] Sending message of size: {len(size_data)}")
             conn.send(size_data)
