@@ -224,20 +224,21 @@ class Server:
             # print(f"[INFO] Message size: {size}")
             # self.send_ack(connection)  # Send acknowledgment for the message size
             # print(f"[INFO] Message size acknowledgment sent successfully. Waiting for message...")
-            chunks = []
-            remaining_size = size
-            while remaining_size > 0:
-                chunk = connection.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
-                if not chunk:
-                    print("[ERROR] Failed to receive message chunk.")
-                    return None
+            # chunks = []
+            # remaining_size = size
+            # while remaining_size > 0:
+            #     chunk = connection.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
+            #     if not chunk:
+            #         print("[ERROR] Failed to receive message chunk.")
+            #         return None
 
-                chunks.append(chunk)
-                remaining_size -= len(chunk)
+            #     chunks.append(chunk)
+            #     remaining_size -= len(chunk)
 
                 # self.send_ack(connection)  # Send acknowledgment for each chunk
 
-            message_bytes = b''.join(chunks)
+            # message_bytes = b''.join(chunks)
+            message_bytes = connection.recv(size)
             message_json = message_bytes.decode('utf-8')
             message = json.loads(message_json)  # Decode the JSON message
 
@@ -258,6 +259,7 @@ class Server:
             size_data = str(size).encode('utf-8').ljust(HEADER_SIZE)
             # print(f"[INFO] Sending message of size: {len(size_data)}")
             conn.send(size_data)
+            conn.sendall(message_bytes)
             # print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
 
             # Receive acknowledgment for the size
@@ -266,16 +268,16 @@ class Server:
             #     return
 
             # Send the message in chunks with retries
-            chunk_size = DATA_SIZE_PER_PACKET
+            # chunk_size = DATA_SIZE_PER_PACKET
             # count = 0
-            remaining_size = size
-            for i in range(0, size, chunk_size):
-                if remaining_size < chunk_size:
-                    chunk_size = remaining_size
-                chunk = message_bytes[i:i + chunk_size]
-                remaining_size -= chunk_size
-                # count += 1
-                conn.send(chunk)
+            # remaining_size = size
+            # for i in range(0, size, chunk_size):
+            #     if remaining_size < chunk_size:
+            #         chunk_size = remaining_size
+            #     chunk = message_bytes[i:i + chunk_size]
+            #     remaining_size -= chunk_size
+            #     # count += 1
+            #     conn.send(chunk)
                 # print(f"[INFO] Chunk {count} sent successfully")
                 # Receive acknowledgment for the chunk
                 # if not self.wait_for_ack(conn):

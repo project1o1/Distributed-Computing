@@ -30,7 +30,7 @@ class Commander(Client):
                 "file_name": "jiggly_pudding.blend",
                 "file": base64.b64encode(file).decode('utf-8'),
                 "start_frame": 1,
-                "end_frame": 10,
+                "end_frame": 300,
                 }
             # send file
             self.send_message(message)
@@ -63,5 +63,5 @@ class Commander(Client):
                     f.close()
                 
 
-c = Commander("127.0.0.1", PORT)
+c = Commander("192.168.0.102", PORT)
 

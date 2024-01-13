@@ -46,15 +46,16 @@ class Client:
             #     print("[ERROR] Failed to send message size acknowledgment")
             #     return
             print(f"[INFO] Message size acknowledgment received. Sending message...")
+            self.socket.sendall(message_bytes)
             # Send the message in chunks with retries
-            chunk_size = DATA_SIZE_PER_PACKET
-            remaining_size = size
-            for i in range(0, size, chunk_size):
-                if remaining_size < chunk_size:
-                    chunk_size = remaining_size
-                chunk = message_bytes[i:i + chunk_size]
-                remaining_size -= chunk_size
-                self.socket.send(chunk)
+            # chunk_size = DATA_SIZE_PER_PACKET
+            # remaining_size = size
+            # for i in range(0, size, chunk_size):
+            #     if remaining_size < chunk_size:
+            #         chunk_size = remaining_size
+            #     chunk = message_bytes[i:i + chunk_size]
+            #     remaining_size -= chunk_size
+            #     self.socket.send(chunk)
 
                 # Receive acknowledgment for the chunk
                 # if not self.wait_for_ack():
@@ -85,23 +86,24 @@ class Client:
 
             # self.send_ack()  # Send acknowledgment for the message size
 
-            chunks = []
-            remaining_size = size
-            # count = 0
-            while remaining_size > 0:
-                chunk = self.socket.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
-                # count += 1
-                # print(f"[INFO] Received chunk {count}")
-                if not chunk:
-                    print("[ERROR] Failed to receive message chunk.")
-                    return None
+            # chunks = []
+            # remaining_size = size
+            # # count = 0
+            # while remaining_size > 0:
+            #     chunk = self.socket.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
+            #     # count += 1
+            #     # print(f"[INFO] Received chunk {count}")
+            #     if not chunk:
+            #         print("[ERROR] Failed to receive message chunk.")
+            #         return None
 
-                chunks.append(chunk)
-                remaining_size -= len(chunk)
+            #     chunks.append(chunk)
+            #     remaining_size -= len(chunk)
 
                 # self.send_ack()  # Send acknowledgment for each chunk
 
-            message_bytes = b''.join(chunks)
+            # message_bytes = b''.join(chunks)
+            message_bytes = self.socket.recv(size)
             message_json = message_bytes.decode('utf-8')
             message = json.loads(message_json)  # Decode the JSON message
 
