@@ -42,9 +42,9 @@ class Client:
             print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
 
             # Receive acknowledgment for the size
-            if not self.wait_for_ack():
-                print("[ERROR] Failed to send message size acknowledgment")
-                return
+            # if not self.wait_for_ack():
+            #     print("[ERROR] Failed to send message size acknowledgment")
+            #     return
             print(f"[INFO] Message size acknowledgment received. Sending message...")
             # Send the message in chunks with retries
             chunk_size = DATA_SIZE_PER_PACKET
@@ -57,17 +57,17 @@ class Client:
                 self.socket.send(chunk)
 
                 # Receive acknowledgment for the chunk
-                if not self.wait_for_ack():
-                    print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
-                    # Retry sending the chunk
-                    for retry_count in range(max_retries):
-                        time.sleep(retry_interval)
-                        self.socket.send(chunk)
-                        if self.wait_for_ack():
-                            break
-                    else:
-                        print("[ERROR] Maximum retries reached. Failed to send message chunk.")
-                        return
+                # if not self.wait_for_ack():
+                #     print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
+                #     # Retry sending the chunk
+                #     for retry_count in range(max_retries):
+                #         time.sleep(retry_interval)
+                #         self.socket.send(chunk)
+                #         if self.wait_for_ack():
+                #             break
+                #     else:
+                #         print("[ERROR] Maximum retries reached. Failed to send message chunk.")
+                #         return
 
             print(f"[INFO] Message sent successfully.")
 
@@ -83,7 +83,7 @@ class Client:
 
             size = int(size_data.strip().decode('utf-8'))
 
-            self.send_ack()  # Send acknowledgment for the message size
+            # self.send_ack()  # Send acknowledgment for the message size
 
             chunks = []
             remaining_size = size
@@ -99,7 +99,7 @@ class Client:
                 chunks.append(chunk)
                 remaining_size -= len(chunk)
 
-                self.send_ack()  # Send acknowledgment for each chunk
+                # self.send_ack()  # Send acknowledgment for each chunk
 
             message_bytes = b''.join(chunks)
             message_json = message_bytes.decode('utf-8')

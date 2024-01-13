@@ -222,7 +222,7 @@ class Server:
             # print(f"[INFO] Message size data received successfully. Waiting for message size... {size_data}")
             size = int(size_data.strip().decode('utf-8'))
             # print(f"[INFO] Message size: {size}")
-            self.send_ack(connection)  # Send acknowledgment for the message size
+            # self.send_ack(connection)  # Send acknowledgment for the message size
             # print(f"[INFO] Message size acknowledgment sent successfully. Waiting for message...")
             chunks = []
             remaining_size = size
@@ -235,7 +235,7 @@ class Server:
                 chunks.append(chunk)
                 remaining_size -= len(chunk)
 
-                self.send_ack(connection)  # Send acknowledgment for each chunk
+                # self.send_ack(connection)  # Send acknowledgment for each chunk
 
             message_bytes = b''.join(chunks)
             message_json = message_bytes.decode('utf-8')
@@ -261,9 +261,9 @@ class Server:
             # print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
 
             # Receive acknowledgment for the size
-            if not self.wait_for_ack(conn):
-                print("[ERROR] Failed to send message size acknowledgment")
-                return
+            # if not self.wait_for_ack(conn):
+            #     print("[ERROR] Failed to send message size acknowledgment")
+            #     return
 
             # Send the message in chunks with retries
             chunk_size = DATA_SIZE_PER_PACKET
@@ -278,17 +278,17 @@ class Server:
                 conn.send(chunk)
                 # print(f"[INFO] Chunk {count} sent successfully")
                 # Receive acknowledgment for the chunk
-                if not self.wait_for_ack(conn):
-                    print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
+                # if not self.wait_for_ack(conn):
+                    # print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
                     # Retry sending the chunk
-                    for retry_count in range(max_retries):
-                        time.sleep(retry_interval)
-                        conn.send(chunk)
-                        if self.wait_for_ack(conn):
-                            break
-                    else:
-                        print("[ERROR] Maximum retries reached. Failed to send message chunk.")
-                        return
+                    # for retry_count in range(max_retries):
+                    #     time.sleep(retry_interval)
+                    #     conn.send(chunk)
+                    #     if self.wait_for_ack(conn):
+                    #         break
+                    # else:
+                    #     print("[ERROR] Maximum retries reached. Failed to send message chunk.")
+                    #     return
 
             # print(f"[INFO] Message sent successfully.")
 
