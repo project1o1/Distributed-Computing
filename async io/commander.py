@@ -56,15 +56,6 @@ class Commander(Client):
                 f.write(base64.b64decode(message["frame"]))
                 f.close()
 
-                
-           
-            # message = ""
-            # for i in range(len(result)):
-            #     message += result[i]["message"]+" "
-            #     # message += result[i]["message"]
-            # print(f"[INFO] Result received from server: {message}")
-            # end = time.time()
-            # print(end - start)
    
             end = time.time()
             print(f"[INFO] Rendered {end_frame} frames in {end - start} seconds")

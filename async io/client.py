@@ -47,28 +47,6 @@ class Client:
             #     return
             print(f"[INFO] Message size acknowledgment received. Sending message...")
             self.socket.sendall(message_bytes)
-            # Send the message in chunks with retries
-            # chunk_size = DATA_SIZE_PER_PACKET
-            # remaining_size = size
-            # for i in range(0, size, chunk_size):
-            #     if remaining_size < chunk_size:
-            #         chunk_size = remaining_size
-            #     chunk = message_bytes[i:i + chunk_size]
-            #     remaining_size -= chunk_size
-            #     self.socket.send(chunk)
-
-                # Receive acknowledgment for the chunk
-                # if not self.wait_for_ack():
-                #     print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
-                #     # Retry sending the chunk
-                #     for retry_count in range(max_retries):
-                #         time.sleep(retry_interval)
-                #         self.socket.send(chunk)
-                #         if self.wait_for_ack():
-                #             break
-                #     else:
-                #         print("[ERROR] Maximum retries reached. Failed to send message chunk.")
-                #         return
 
             print(f"[INFO] Message sent successfully.")
 
@@ -84,25 +62,6 @@ class Client:
 
             size = int(size_data.strip().decode('utf-8'))
 
-            # self.send_ack()  # Send acknowledgment for the message size
-
-            # chunks = []
-            # remaining_size = size
-            # # count = 0
-            # while remaining_size > 0:
-            #     chunk = self.socket.recv(min(DATA_SIZE_PER_PACKET, remaining_size))
-            #     # count += 1
-            #     # print(f"[INFO] Received chunk {count}")
-            #     if not chunk:
-            #         print("[ERROR] Failed to receive message chunk.")
-            #         return None
-
-            #     chunks.append(chunk)
-            #     remaining_size -= len(chunk)
-
-                # self.send_ack()  # Send acknowledgment for each chunk
-
-            # message_bytes = b''.join(chunks)
             message_bytes = b''
             remaining_size = size
             while remaining_size > 0:

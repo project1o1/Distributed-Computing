@@ -70,45 +70,7 @@ class Worker(Client):
             # command = f'{blender_path} -b {folder_name}/{file_name} -o {folder_name}/images/ -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a'
             threading.Thread(target=self.send_images, args=(folder_name, start_frame, end_frame)).start()
             subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=False)
-            # stdout, stderr = process.communicate()
-            
 
-            # Check for any errors
-            # if return_code != 0:
-            #     print(f"Error")
-            # else:
-            #     print("Render completed successfully.")
-
-            # send result
-            # result = {}
-            # images_list = os.listdir(folder_name+"/images/")
-            # for i in range(len(images_list)):
-            #     f = open(f"{folder_name}/images/{images_list[i]}", "rb")
-            #     file = f.read()
-            #     result[i] = base64.b64encode(file).decode('utf-8')
-            #     f.close()
-            # for i in range(start_frame, end_frame+1):
-            #     f = open(f"{folder_name}/{'0'*len(str(i))}{i}.png", "rb")
-            #     file = f.read()
-            #     result[i] = file
-            #     f.close()
-            
-            
-            # result = message
-            # message.pop("message")
-            # message["message_type"] = "result"
-            # message["message"] = result
-            # print(f"[INFO] Sending result for task {task_id}")
-            # print(f"[INFO] Acknowledgment sent for task {task_id}")
-
-            # self.send_message(message)
-            # print(f"[INFO] Result sent for task {task_id}")
-
-            # result = eval(function_name+"(input_task)")
-            # self.send_ack()
-            # message["message_type"] = "result"
-            # message["message"] = result
-            # self.send_message(message)
     
     def send_images(self, folder_name, start_frame, end_frame):
         i=0
