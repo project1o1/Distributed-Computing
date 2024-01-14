@@ -4,6 +4,8 @@ import os
 import base64
 import subprocess
 import threading
+import time
+import shutil
 
 blender_path = "C:/Program Files/Blender Foundation/Blender 4.0/blender.exe"
 output_format = "PNG"
@@ -44,7 +46,7 @@ class Worker(Client):
             start_frame = task["start_frame"]
             end_frame = task["end_frame"]
             # create folder
-            folder_name = f"worker_blend_files/{task_id}"
+            folder_name = f"worker_blend_files/{self.ID}"
             if not os.path.exists(folder_name):
                 os.mkdir(folder_name)
             
@@ -62,6 +64,9 @@ class Worker(Client):
             # execute blender
             # output_path = os.path.join(folder_name, f'frame_{frame_num:04d}')
             folder_name = os.path.abspath(folder_name)
+            folder_name = folder_name.replace("\\", "/")
+            if not os.path.exists(folder_name+"/images"):
+                os.mkdir(folder_name+"/images")
             # command = f'{blender_path} -b {folder_name}/{file_name} -o {folder_name}/images/ -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a'
             threading.Thread(target=self.send_images, args=(folder_name, start_frame, end_frame)).start()
             subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=False)
@@ -72,17 +77,26 @@ class Worker(Client):
         while i < end_frame-start_frame+1:
             images = os.listdir(folder_name+"/images/")
             if len(images) == 0:
+                time.sleep(1)
                 continue
-            f = open(f"{folder_name}/images/{images[0]}", "rb")
+            try:
+                f = open(f"{folder_name}/images/{images[0]}", "rb")
+            except:
+                time.sleep(1)
+                continue
             file = f.read()
             self.send_message({
                 "frame": base64.b64encode(file).decode('utf-8'),
                 # "frame_num": int(images[0])+start_frame
                 "frame_num": i+start_frame
             })
-            os.remove(f"{folder_name}/images/{images[0]}")
+            print(f"[INFO] Sent frame {i+start_frame}")
             i+=1
-            print(f"[INFO] Sent frame {i}")
+        # os.remove(f"{folder_name}/images/{images[0]}")
+        # os.rmdir(f"{folder_name}/images")
+        shutil.rmtree(f"{folder_name}/images")
+            
+        
 
 if __name__ == "__main__":
-    w = Worker("192.168.0.101", PORT)
+    w = Worker("192.168.0.100", PORT)
