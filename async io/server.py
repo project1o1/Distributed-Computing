@@ -119,23 +119,22 @@ class Server:
             # self.lock.release()
 
     def handle_worker_receive(self, worker_socket, worker_id, commander_id, start_frame, end_frame):
+        
         i = 0
-        res_queue = Queue()
-        threading.Thread(target=send_result).start()
         while i < end_frame - start_frame + 1:
             message = self.receive_message(worker_socket)
             if message is None:
                 break
             message["commander_id"] = commander_id
-            res_queue.put(message)
+            if self.result_queue.qsize() > 20:
+                while self.result_queue.qsize() > 0:
+                    time.sleep(0.5)
+            self.result_queue.put(message)
+            print(f"[INFO] Message added to result queue of frame {i+start_frame}")
+            print(self.result_queue.qsize())
             i += 1
         self.worker_status[worker_id] = "idle"
-
-        def send_result():
-            while not res_queue.empty():
-                message = res_queue.get()
-                self.result_queue.put(message)
-                print(f"[INFO] Message added to result queue of frame {message['frame_num']}")
+        
 
     def handle_commander(self, commander_socket, commander_address):
         # print(f"[INFO] Connection established with commander {commander_address}")
@@ -262,6 +261,39 @@ class Server:
             # print(f"[INFO] Sending message of size: {len(size_data)}")
             conn.send(size_data)
             conn.sendall(message_bytes)
+            # print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
+
+            # Receive acknowledgment for the size
+            # if not self.wait_for_ack(conn):
+            #     print("[ERROR] Failed to send message size acknowledgment")
+            #     return
+
+            # Send the message in chunks with retries
+            # chunk_size = DATA_SIZE_PER_PACKET
+            # count = 0
+            # remaining_size = size
+            # for i in range(0, size, chunk_size):
+            #     if remaining_size < chunk_size:
+            #         chunk_size = remaining_size
+            #     chunk = message_bytes[i:i + chunk_size]
+            #     remaining_size -= chunk_size
+            #     # count += 1
+            #     conn.send(chunk)
+                # print(f"[INFO] Chunk {count} sent successfully")
+                # Receive acknowledgment for the chunk
+                # if not self.wait_for_ack(conn):
+                    # print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
+                    # Retry sending the chunk
+                    # for retry_count in range(max_retries):
+                    #     time.sleep(retry_interval)
+                    #     conn.send(chunk)
+                    #     if self.wait_for_ack(conn):
+                    #         break
+                    # else:
+                    #     print("[ERROR] Maximum retries reached. Failed to send message chunk.")
+                    #     return
+
+            # print(f"[INFO] Message sent successfully.")
 
         except socket.error as e:
             print(f"[ERROR] Failed to send message: {e}")
