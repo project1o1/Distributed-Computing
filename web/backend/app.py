@@ -7,6 +7,8 @@ import base64
 import os
 import uvicorn
 import threading
+from fastapi.responses import StreamingResponse
+from fastapi import HTTPException
 app = FastAPI()
 
 class Commander(Client):
@@ -25,10 +27,10 @@ class Commander(Client):
         print(f"[INFO] Sending file to server")
         start = time.time()
         start_frame = 1
-        end_frame = 30
+        end_frame = 10
         message = {
             # "file": file,
-            "file_name": "jiggly_pudding.blend",
+            "file_name": "balls.blend",
             "file": base64.b64encode(file).decode('utf-8'),
             "start_frame": start_frame,
             "end_frame": end_frame,
@@ -70,7 +72,7 @@ class Commander(Client):
             
             if not os.path.exists(f"{output_folder}/{self.ID}"):
                 os.mkdir(f"{output_folder}/{self.ID}")
-                
+
             # saving zip file
             f = open(f"{output_folder}/{self.ID}/{file_name}", "wb")
             f.write(base64.b64decode(zip_file))
@@ -102,13 +104,20 @@ async def upload_file(file: UploadFile = File(...)):
         print('File size:', len(file_content))
         # Send the file to the server
         c = Commander("0.0.0.0", PORT)
+        id = c.ID
         result = c.message_server(file_content)
         # return {"status": isRendered}
         if result:
-            file = open(result, "rb")
-            encoded_file = base64.b64encode(file.read()).decode('utf-8')
-            file.close()
-            return {"status": "success", "file": encoded_file}
+            # file = open(result, "rb")
+            # file_data = file.read()
+            # output_folder = "commander_output"
+            # if not os.path.exists(output_folder):
+            #     os.mkdir(output_folder)
+            # f = open(f"{output_folder}/{id}.zip", "wb")
+            # f.write(file_data)
+            # f.close()
+            # file.close()
+            return {"status": "success", "id": id}
         else:
             return {"status": "failure"}
     except Exception as e:
@@ -116,6 +125,26 @@ async def upload_file(file: UploadFile = File(...)):
         return {"status":"failure","error": "Internal Server Error"}
 
 
+@app.get("/download/{id}")
+async def download_file(id: str):
+    try:
+        # Access the uploaded file using file.filename and file.file.read()
+        # For now, we are just logging the file details
+        print('Received file:', id)
+        # Send the file to the server
+        output_folder = "commander_output"
+        if not os.path.exists(output_folder):
+            os.mkdir(output_folder)
+        file_path = f"{output_folder}/{id}/results.zip"
+
+        if os.path.exists(file_path):
+            return StreamingResponse(open(file_path, "rb"), media_type="application/zip", headers={"Content-Disposition": f"attachment; filename={id}_results.zip"})
+        else:
+            raise HTTPException(status_code=404, detail="File not found")
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 # Run the server

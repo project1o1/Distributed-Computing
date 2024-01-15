@@ -27,9 +27,6 @@ function App() {
         .then((res) => {
           console.log(res);
           setResult(res.data);
-
-          // result data = {"status": "success", "file": encoded_file}
-
           setUploading(false);
           setUploaded(true);
         })
@@ -49,21 +46,30 @@ function App() {
   useEffect(() => {
     if (uploaded) {
       if (result && result.status === "success") {
-        const decodedFile = new Uint8Array(
-          atob(result.file)
-            .split("")
-            .map((char) => char.charCodeAt(0))
-        );
-
-        const blob = new Blob([decodedFile], { type: "application/zip" });
-
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "rendered.zip";
-        document.body.appendChild(link);
-        link.click();
-
-        setUploaded(false);
+        axios.get(`${backendUrl}/download/${result.id}`, {
+          responseType: "blob",
+        })
+        .then((res) => {
+          console.log(res);
+          const url = window.URL.createObjectURL(
+            new Blob([res.data], {
+              type: "application/zip",
+            })
+          );
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute("download", "results.zip");
+          document.body.appendChild(link);
+          link.click();
+          setUploading(false);
+          setUploaded(false);
+        })
+        .catch((err) => {
+          console.log(err);
+          setUploading(false);
+          setUploaded(false);
+          setError("Error cannot download the zip file");
+        });
       }
     }
   }, [uploaded, result]);
@@ -72,7 +78,10 @@ function App() {
   return (
     <>
       {uploaded ? (
-        <h1>Rendered! Downloading Zip file.</h1>
+        <>
+        <h1>Rendered! </h1>
+        <p>Downloading the Zip file</p>
+        </>
       ) : uploading ? (
         <h1>Rendering...</h1>
       ) : (
