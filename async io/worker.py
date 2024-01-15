@@ -68,48 +68,24 @@ class Worker(Client):
             if not os.path.exists(folder_name+"/images"):
                 os.mkdir(folder_name+"/images")
             # command = f'{blender_path} -b {folder_name}/{file_name} -o {folder_name}/images/ -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a'
-            threading.Thread(target=self.send_images, args=(folder_name, start_frame, end_frame)).start()
-            subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=False)
+            image_thread = threading.Thread(target=self.send_images, args=(folder_name, start_frame, end_frame))
+            image_thread.start()
+            # subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=False)
+            command = [
+                blender_path,
+                '-b', f'{folder_name}/{file_name}',
+                '-o', f'{folder_name}/images/',
+                '-F', output_format,
+                '-x', '1',
+                '-s', str(start_frame),
+                '-e', str(end_frame),
+                '-a'
+            ]
+            subprocess.Popen(command, shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            image_thread.join()
+            # shutil.rmtree(f"{folder_name}/images")
             # stdout, stderr = process.communicate()
             
-
-            # Check for any errors
-            # if return_code != 0:
-            #     print(f"Error")
-            # else:
-            #     print("Render completed successfully.")
-
-            # send result
-            # result = {}
-            # images_list = os.listdir(folder_name+"/images/")
-            # for i in range(len(images_list)):
-            #     f = open(f"{folder_name}/images/{images_list[i]}", "rb")
-            #     file = f.read()
-            #     result[i] = base64.b64encode(file).decode('utf-8')
-            #     f.close()
-            # for i in range(start_frame, end_frame+1):
-            #     f = open(f"{folder_name}/{'0'*len(str(i))}{i}.png", "rb")
-            #     file = f.read()
-            #     result[i] = file
-            #     f.close()
-            
-            
-            # result = message
-            # message.pop("message")
-            # message["message_type"] = "result"
-            # message["message"] = result
-            # print(f"[INFO] Sending result for task {task_id}")
-            # print(f"[INFO] Acknowledgment sent for task {task_id}")
-
-            # self.send_message(message)
-            # print(f"[INFO] Result sent for task {task_id}")
-
-            # result = eval(function_name+"(input_task)")
-            # self.send_ack()
-            # message["message_type"] = "result"
-            # message["message"] = result
-            # self.send_message(message)
-    
     def send_images(self, folder_name, start_frame, end_frame):
         i=0
         while i < end_frame-start_frame+1:
@@ -123,18 +99,23 @@ class Worker(Client):
                 time.sleep(1)
                 continue
             file = f.read()
+            f.close()
+            try:
+                os.remove(f"{folder_name}/images/{images[0]}")
+            except:
+                time.sleep(1)
+                continue
             self.send_message({
                 "frame": base64.b64encode(file).decode('utf-8'),
                 # "frame_num": int(images[0])+start_frame
-                "frame_num": i+start_frame
+                "frame_num": int(images[0].split(".")[0])
             })
-            print(f"[INFO] Sent frame {i+start_frame}")
+            print(f"[INFO] Sent frame {int(images[0].split('.')[0])}")
             i+=1
         # os.remove(f"{folder_name}/images/{images[0]}")
         # os.rmdir(f"{folder_name}/images")
-        shutil.rmtree(f"{folder_name}/images")
             
         
 
 if __name__ == "__main__":
-    w = Worker("192.168.0.100", PORT)
+    w = Worker("192.168.0.107", PORT)

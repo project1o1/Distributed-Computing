@@ -37,15 +37,15 @@ class Client:
             # Send the size of the message
             size = len(message_bytes)
             size_data = str(size).encode('utf-8').ljust(HEADER_SIZE)
-            print(f"[INFO] Sending message of size: {size}")
+            # print(f"[INFO] Sending message of size: {size}")
             self.socket.send(size_data)
-            print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
+            # print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
 
             # Receive acknowledgment for the size
             # if not self.wait_for_ack():
             #     print("[ERROR] Failed to send message size acknowledgment")
             #     return
-            print(f"[INFO] Message size acknowledgment received. Sending message...")
+            # print(f"[INFO] Message size acknowledgment received. Sending message...")
             self.socket.sendall(message_bytes)
             # Send the message in chunks with retries
             # chunk_size = DATA_SIZE_PER_PACKET
@@ -70,7 +70,7 @@ class Client:
                 #         print("[ERROR] Maximum retries reached. Failed to send message chunk.")
                 #         return
 
-            print(f"[INFO] Message sent successfully.")
+            # print(f"[INFO] Message sent successfully.")
 
         except socket.error as e:
             print(f"[ERROR] Failed to send message: {e}")

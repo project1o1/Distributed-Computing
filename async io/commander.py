@@ -26,7 +26,7 @@ class Commander(Client):
             start = time.time()
 
             start_frame = 1
-            end_frame = 30
+            end_frame = 120
             
             message = {
                 # "file": file,
@@ -50,11 +50,11 @@ class Commander(Client):
                 message = self.receive_message()
                 if message is None:
                     break
-                print(f"[INFO] Received result for frame {i+1}")
                 frame_num = message["frame_num"]
                 f = open(f"{output_folder}/{frame_num}.png", "wb")
                 f.write(base64.b64decode(message["frame"]))
                 f.close()
+                print(f"[INFO] Received result for frame {frame_num}", end="\r")
 
                 
            
@@ -70,5 +70,5 @@ class Commander(Client):
             print(f"[INFO] Rendered {end_frame} frames in {end - start} seconds")
                 
 
-c = Commander("192.168.0.102", PORT)
+c = Commander("192.168.0.107", PORT)
 

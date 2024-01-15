@@ -23,14 +23,16 @@ class Server:
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.IP, self.PORT))
         self.message_queue = Queue()
-        self.result_queue_1 = Queue()
-        self.result_queue_2 = Queue()
+
+        self.result_queues = [Queue() for _ in range(2)]
+        self.present_queue = 0
+
         self.all_messages = {}
 
         self.result_lengths = {}
         self.result_sent_lengths = {}
 
-        # self.lock = Lock()
+        self.lock = Lock()
         # self.result_lock = Lock()
 
     def start(self):
@@ -55,27 +57,28 @@ class Server:
                 # self.lock.release()
                 print(f"[INFO] Worker {worker_id} connected to server")
 
-                threading.Thread(target=self.handle_worker_send, args=(client_socket, client_address, worker_id)).start()
+                threading.Thread(target=self.handle_worker_send, args=(client_socket, worker_id)).start()
                 # threading.Thread(target=self.handle_worker_receive, args=(client_socket, client_address, worker_id)).start()
 
             elif client_type == "commander":
                 threading.Thread(target=self.handle_commander, args=(client_socket, client_address)).start()
 
-    def handle_result_queue(self,result_queue,num):
-        i=0
-        while i<num:
-            result = self.result_queue.get()
+    def handle_result_queue(self):
+        while True:
+            with self.lock:
+                p_queue = (self.present_queue + 1) % 2
+            if self.result_queues[p_queue].empty():
+                p_queue = self.present_queue
+            result = self.result_queues[p_queue].get()
             # print(f"[INFO] Result Queue size: {self.result_queue.qsize()}")
             commander_id = result["commander_id"]
-            if self.commander_status[commander_id] == "idle":
-                self.result_queue.put(result)
-                continue
             self.commander_status[commander_id] = "busy"
             commander_socket, commander_address = self.commanders[commander_id]
             # self.send_ack(commander_socket, "RESULT")
             self.send_message(result, commander_socket)
-            frame_num = result["frame_num"]
-            print(f"[INFO] Frame {frame_num} sent to commander {commander_id}")
+            print(self.result_queues[0].qsize(), self.result_queues[1].qsize())
+            # frame_num = result["frame_num"]
+            # print(f"[INFO] Frame {frame_num} sent to commander {commander_id} from queue {self.present_queue}", end="\r")
             # print(f"[INFO] Result Queue size: {self.result_queue.qsize()}")
             # print(f"[INFO] Result sent to commander {commander_id}")
             # self.commander_status[commander_id] = "idle"
@@ -83,7 +86,6 @@ class Server:
             if self.result_sent_lengths[commander_id] == self.result_lengths[commander_id]:
                 self.commander_status[commander_id] = "idle"
             # print(f"[INFO] Result is {result}")
-            i+=1
 
     def worker_health_check(self):
         while True:
@@ -102,7 +104,7 @@ class Server:
             time.sleep(1)
                 
 
-    def handle_worker_send(self, worker_socket, worker_address, worker_id):
+    def handle_worker_send(self, worker_socket, worker_id):
         while True:
             if self.worker_status[worker_id] == "busy":
                 continue
@@ -115,25 +117,26 @@ class Server:
                 self.send_message(message, worker_socket)
                 self.worker_status[worker_id] = "busy"
                 # print(f"[INFO] Message sent to worker {worker_address}")
-                self.handle_worker_receive(worker_socket, worker_id,message["commander_id"], message["message"]["start_frame"], message["message"]["end_frame"])
+                self.handle_worker_receive(worker_socket, worker_id, message["commander_id"], message["message"]["start_frame"], message["message"]["end_frame"])
             # self.lock.release()
 
     def handle_worker_receive(self, worker_socket, worker_id, commander_id, start_frame, end_frame):
-        
         i = 0
         while i < end_frame - start_frame + 1:
             message = self.receive_message(worker_socket)
             if message is None:
                 break
+            self.worker_status[worker_id] = "idle"
             message["commander_id"] = commander_id
-            if self.result_queue.qsize() > 20:
-                while self.result_queue.qsize() > 0:
-                    time.sleep(0.5)
-            self.result_queue.put(message)
-            print(f"[INFO] Message added to result queue of frame {i+start_frame}")
-            print(self.result_queue.qsize())
+            # self.result_queues[self.present_queue].put(message)
+            # self.present_queue = (self.present_queue + 1) % 2
+            with self.lock:
+                if self.result_queues[self.present_queue].qsize() > 30:
+                    self.present_queue = (self.present_queue + 1) % 2
+                self.result_queues[self.present_queue].put(message)            
+            # self.result_queue.put(message)
+            # print(self.result_queue.qsize())
             i += 1
-        self.worker_status[worker_id] = "idle"
         
 
     def handle_commander(self, commander_socket, commander_address):
@@ -185,8 +188,6 @@ class Server:
                 message_to_send["start_frame"] = start_frame
                 message_to_send["end_frame"] = end_frame
                 self.add_message_to_queue(message_to_send, commander_id, i)
-            self.result_lengths[commander_id] = no_of_frames
-            self.result_sent_lengths[commander_id] = 0
             self.commander_status[commander_id] = "busy"
 
         
@@ -228,7 +229,7 @@ class Server:
             #     return None
             # print(f"[INFO] Message size data received successfully. Waiting for message size... {size_data}")
             size = int(size_data.strip().decode('utf-8'))
-            print(f"[INFO] Message size received successfully. Waiting for message... {size}")
+            # print(f"[INFO] Message size received successfully. Waiting for message... {size}")
             # message_bytes = connection.recv(size)
             message_bytes = b''
             remaining_size = size
@@ -256,7 +257,7 @@ class Server:
 
             # Send the size of the message
             size = len(message_bytes)
-            print(f"[INFO] Sending message of size: {size}")
+            # print(f"[INFO] Sending message of size: {size}")
             size_data = str(size).encode('utf-8').ljust(HEADER_SIZE)
             # print(f"[INFO] Sending message of size: {len(size_data)}")
             conn.send(size_data)
