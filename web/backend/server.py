@@ -9,6 +9,7 @@ import nanoid
 import json
 import base64
 import os
+
 class Server:
     def __init__(self, IP, port):
         self.IP = IP
@@ -197,7 +198,8 @@ class Server:
             self.all_messages[commander_id] = Queue()
             self.result_lengths[commander_id] = no_of_frames
             self.result_sent_lengths[commander_id] = 0
-            no_of_chunks = 10
+            # no_of_chunks = 10
+            no_of_chunks = len(self.workers) 
             task_id = nanoid.generate(size=10)
             message["task_id"] = task_id
             # self.send_message(no_of_chunks, commander_socket)
