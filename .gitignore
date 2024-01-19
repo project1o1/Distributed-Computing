@@ -2,18 +2,20 @@ client/__pycache__
 server/__pycache__
 test
 
-blender/server_blend_files
-blender/worker_blend_files
-blender/blender_output
-blender/commander_output
+web/backend/server_blend_files
+web/backend/worker_blend_files
+web/backend/blender_output
+web/backend/commander_output
 
-async io/server_blend_files
-async io/worker_blend_files
-async io/blender_output
-async io/commander_output
+server/server_blend_files
+server/worker_blend_files
+server/blender_output
+server/commander_output
 
-
-
+client/server_blend_files
+client/worker_blend_files
+client/blender_output
+client/commander_output
 
 
 # Logs
@@ -37,8 +39,3 @@ web/client/*.ntvs*
 web/client/*.njsproj
 web/client/*.sln
 web/client/*.sw?
-
-
-web/backend/node_modules
-web/backend/commander_output
-web/backend/server_blend_files
