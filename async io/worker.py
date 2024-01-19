@@ -118,4 +118,4 @@ class Worker(Client):
         
 
 if __name__ == "__main__":
-    w = Worker("192.168.0.107", PORT)
+    w = Worker("127.0.0.1", PORT)

@@ -14,3 +14,31 @@ async io/commander_output
 
 
 
+
+
+# Logs
+web/client/logs
+web/client/*.log
+web/client/npm-debug.log*
+web/client/yarn-debug.log*
+web/client/yarn-error.log*
+web/client/pnpm-debug.log*
+web/client/lerna-debug.log*
+web/client/node_modules
+web/client/dist
+web/client/dist-ssr
+web/client/*.local
+web/client/.vscode/*
+web/client/!.vscode/extensions.json
+web/client/.idea
+web/client/.DS_Store
+web/client/*.suo
+web/client/*.ntvs*
+web/client/*.njsproj
+web/client/*.sln
+web/client/*.sw?
+
+
+web/backend/node_modules
+web/backend/commander_output
+web/backend/server_blend_files
