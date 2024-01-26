@@ -5,7 +5,6 @@ import base64
 import subprocess
 import threading
 import time
-import shutil
 
 blender_path = "C:/Program Files/Blender Foundation/Blender 4.0/blender.exe"
 output_format = "PNG"
