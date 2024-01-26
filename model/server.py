@@ -9,7 +9,9 @@ import nanoid
 import json
 import base64
 import os
-
+import tensorflow as tf
+from tensorflow.keras.models import model_from_json
+import numpy as np
 class Server:
     def __init__(self, IP, port):
         self.IP = IP
@@ -159,15 +161,10 @@ class Server:
         
 
     def handle_commander(self, commander_socket, commander_address):
-        # print(f"[INFO] Connection established with commander {commander_address}")
         commander_id = self.receive_message(commander_socket)
-        # self.lock.acquire()
-        # self.commanders.append((commander_socket, commander_address, commander_id))
         self.commanders[commander_id] = (commander_socket, commander_address)
         self.commander_status[commander_id] = "idle"
         print(f"[INFO] Commander {commander_id} connected to server")
-        # print(f"[INFO] Commander {commander_id} connected to server")
-        # self.lock.release()
 
         while True:
             if self.commander_status[commander_id] == "busy":
@@ -177,44 +174,46 @@ class Server:
             except:
                 print(f"[INFO] Commander {commander_id} disconnected from server")
                 break
+
             if message is None:
                 break
-            # print(f"[INFO] Message received from commander {commander_id}: {message}")
-            input_file = message["file"]
-            input_file = base64.b64decode(input_file)
-            file_name = message["file_name"]
-            #create folder
-            if not os.path.exists('server_blend_files'):
-                os.makedirs('server_blend_files')
-            if not os.path.exists(f'server_blend_files/{commander_id}'):
-                os.makedirs(f'server_blend_files/{commander_id}')
-            #save file
-            f = open(f"server_blend_files/{commander_id}/{file_name}", "wb")
-            f.write(input_file)
-            f.close()
-            print(f"[INFO] File received from commander {commander_id}")
 
-            no_of_frames = message["end_frame"] - message["start_frame"] + 1
-            self.all_messages[commander_id] = Queue()
-            self.result_lengths[commander_id] = no_of_frames
-            self.result_sent_lengths[commander_id] = 0
-            # no_of_chunks = 10
-            no_of_chunks = len(self.workers) 
-            task_id = nanoid.generate(size=10)
-            message["task_id"] = task_id
-            # self.send_message(no_of_chunks, commander_socket)
-            for i in range(no_of_chunks):
-                start_frame = message["start_frame"] + i * (no_of_frames // no_of_chunks)
-                end_frame = message["start_frame"] + (i + 1) * (no_of_frames // no_of_chunks) - 1
-                if i == no_of_chunks - 1:
-                    end_frame = message["end_frame"]
-                message_to_send = message.copy()
-                message_to_send["start_frame"] = start_frame
-                message_to_send["end_frame"] = end_frame
-                self.add_message_to_queue(message_to_send, commander_id, i)
-            self.commander_status[commander_id] = "busy"
+            X = base64.b64decode(message["X"])
+            y = base64.b64decode(message["y"])
 
-        
+            X = np.frombuffer(X, dtype=np.float32)
+            y = np.frombuffer(y, dtype=np.float32)
+
+            X = X.reshape(-1,6)
+            y = y.reshape(-1,1)
+
+            model_params_json = message["model_params"]
+
+            # Convert model_params from JSON to a list of lists
+            model_params_list = json.loads(model_params_json)
+
+            # Convert the list of lists to a list of NumPy arrays
+            model_params = [np.array(param) for param in model_params_list]
+
+            param_dtype = message["param_dtype"]
+            param_dshape = json.loads(base64.b64decode(message["param_dshape"]).decode('utf-8'))
+
+            model_architecture = message["model_architecture"]
+
+            model = model_from_json(model_architecture)
+
+            # Set the weights of the model
+            model.set_weights(model_params)
+            print(model.summary())
+            print(X.shape)
+            print(y.shape)
+            print(f"[INFO] Model parameters received from commander {commander_id}")
+
+
+            model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+            model.fit(X, y, epochs=10, batch_size=32)
+            print(f"[INFO] Model trained for commander {commander_id}")
+
                 
                 
 
