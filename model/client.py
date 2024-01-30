@@ -3,6 +3,9 @@ import socket
 from constants import ACKNOWLEDGEMENT_SIZE, HEADER_SIZE, DATA_SIZE_PER_PACKET
 import time
 import json
+import numpy as np
+import tensorflow as tf
+import base64
 
 class Client:
     def __init__(self, IP, port):
@@ -120,3 +123,40 @@ class Client:
         except socket.error as e:
             print(f"[ERROR] Failed to receive message: {e}")
             return None
+        
+    def send_model(self, model):
+        model_params = model.get_weights()
+        model_params_json = json.dumps([param.tolist() for param in model_params])
+        model_architecture = model.to_json()
+        message = {
+            "model_architecture": model_architecture,
+            "model_params": model_params_json
+        }
+        self.send_message(message)
+        print(f"[INFO] Model sent to server")
+
+    def send_data(self, X, y):
+        X_shape = X.shape
+        y_shape = y.shape
+        X = np.array(X, dtype=np.float32)
+        y = np.array(y, dtype=np.float32)
+        X = X.tobytes()
+        y = y.tobytes()
+        message = {
+            "X": base64.b64encode(X).decode('utf-8'),
+            "X_shape": X_shape,
+            "y": base64.b64encode(y).decode('utf-8'),
+            "y_shape": y_shape
+        }
+        self.send_message(message)
+        print(f"[INFO] Data sent to server")
+
+    def receive_model(self):
+        message = self.receive_message()
+        model_architecture = message["model_architecture"]
+        model_params_json = message["model_params"]
+        model_params = [np.array(param) for param in json.loads(model_params_json)]
+        model = tf.keras.models.model_from_json(model_architecture)
+        model.set_weights(model_params)
+        print(f"[INFO] Model received from server")
+        return model

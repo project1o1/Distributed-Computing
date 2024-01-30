@@ -169,45 +169,14 @@ class Server:
         while True:
             if self.commander_status[commander_id] == "busy":
                 continue
-            try:
-                message = self.receive_message(commander_socket)
-            except:
-                print(f"[INFO] Commander {commander_id} disconnected from server")
-                break
 
-            if message is None:
-                break
-
-            X = base64.b64decode(message["X"])
-            y = base64.b64decode(message["y"])
-
-            X = np.frombuffer(X, dtype=np.float32)
-            y = np.frombuffer(y, dtype=np.float32)
-
-            X = X.reshape(-1,6)
-            y = y.reshape(-1,1)
-
-            model_params_json = message["model_params"]
-
-            # Convert model_params from JSON to a list of lists
-            model_params_list = json.loads(model_params_json)
-
-            # Convert the list of lists to a list of NumPy arrays
-            model_params = [np.array(param) for param in model_params_list]
-
-            param_dtype = message["param_dtype"]
-            param_dshape = json.loads(base64.b64decode(message["param_dshape"]).decode('utf-8'))
-
-            model_architecture = message["model_architecture"]
-
-            model = model_from_json(model_architecture)
-
-            # Set the weights of the model
-            model.set_weights(model_params)
+            model = self.receive_model(commander_socket)
+            X, y = self.receive_data(commander_socket)
+            print(f"[INFO] Model and data received from commander {commander_id}")
             print(model.summary())
             print(X.shape)
             print(y.shape)
-            print(f"[INFO] Model parameters received from commander {commander_id}")
+            # print(f"[INFO] Model parameters received from commander {commander_id}")
 
 
             model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
@@ -285,42 +254,31 @@ class Server:
             # print(f"[INFO] Sending message of size: {len(size_data)}")
             conn.send(size_data)
             conn.sendall(message_bytes)
-            # print(f"[INFO] Message size sent successfully. Waiting for acknowledgment...")
-
-            # Receive acknowledgment for the size
-            # if not self.wait_for_ack(conn):
-            #     print("[ERROR] Failed to send message size acknowledgment")
-            #     return
-
-            # Send the message in chunks with retries
-            # chunk_size = DATA_SIZE_PER_PACKET
-            # count = 0
-            # remaining_size = size
-            # for i in range(0, size, chunk_size):
-            #     if remaining_size < chunk_size:
-            #         chunk_size = remaining_size
-            #     chunk = message_bytes[i:i + chunk_size]
-            #     remaining_size -= chunk_size
-            #     # count += 1
-            #     conn.send(chunk)
-                # print(f"[INFO] Chunk {count} sent successfully")
-                # Receive acknowledgment for the chunk
-                # if not self.wait_for_ack(conn):
-                    # print("[ERROR] Failed to send message chunk acknowledgment. Retrying...")
-                    # Retry sending the chunk
-                    # for retry_count in range(max_retries):
-                    #     time.sleep(retry_interval)
-                    #     conn.send(chunk)
-                    #     if self.wait_for_ack(conn):
-                    #         break
-                    # else:
-                    #     print("[ERROR] Maximum retries reached. Failed to send message chunk.")
-                    #     return
-
-            # print(f"[INFO] Message sent successfully.")
 
         except socket.error as e:
             print(f"[ERROR] Failed to send message: {e}")
+
+    def receive_model(self, conn):
+        message = self.receive_message(conn)
+        model_architecture = message["model_architecture"]
+        model_params_json = message["model_params"]
+        model_params_list = json.loads(model_params_json)
+        model_params = [np.array(param) for param in model_params_list]
+        model = model_from_json(model_architecture)
+        model.set_weights(model_params)
+        return model
+    
+    def receive_data(self, conn):
+        message = self.receive_message(conn)
+        X = base64.b64decode(message["X"])
+        y = base64.b64decode(message["y"])
+        X = np.frombuffer(X, dtype=np.float32)
+        y = np.frombuffer(y, dtype=np.float32)
+        X_shape = message["X_shape"]
+        y_shape = message["y_shape"]
+        X = X.reshape(X_shape)
+        y = y.reshape(y_shape)
+        return X, y
 
     def send_ack(self, conn, message="ACK"):
         try:
