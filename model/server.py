@@ -12,6 +12,9 @@ import os
 import tensorflow as tf
 from tensorflow.keras.models import model_from_json
 import numpy as np
+
+N_CHUNKS = 1
+
 class Server:
     def __init__(self, IP, port):
         self.IP = IP
@@ -27,13 +30,17 @@ class Server:
         self.server_socket.bind((self.IP, self.PORT))
         self.message_queue = Queue()
 
-        self.result_queues = [Queue() for _ in range(2)]
+        self.result_queues = Queue()
         self.present_queue = 0
 
         self.all_messages = {}
 
         self.result_lengths = {}
         self.result_sent_lengths = {}
+
+        self.models = {}
+        self.model_lock = Lock()
+        self.model_training = {}
 
         self.lock = Lock()
         # self.result_lock = Lock()
@@ -68,62 +75,11 @@ class Server:
 
     def handle_result_queue(self):
         while True:
-            with self.lock:
-                p_queue = (self.present_queue + 1) % 2
-            if self.result_queues[p_queue].empty():
-                p_queue = self.present_queue
-            result = self.result_queues[p_queue].get()
-
-            commander_id = result["commander_id"]
-            self.commander_status[commander_id] = "busy"
-            commander_socket, commander_address = self.commanders[commander_id]
-
-            output_folder = f"server_blend_files/{commander_id}/results"
-            if not os.path.exists(output_folder):
-                os.mkdir(output_folder)
-            frame_num = result["frame_num"]
-            f = open(f"{output_folder}/{frame_num}.png", "wb")
-            f.write(base64.b64decode(result["frame"]))
-            f.close()
-
-            self.result_sent_lengths[commander_id] += 1
-            # print(f"[INFO] Received result for frame {frame_num} of commander {commander_id}", end="\r")
-            print(f"[INFO] {self.result_sent_lengths[commander_id]} / {self.result_lengths[commander_id]} frames received for commander {commander_id}", end="\r")
-            if self.result_sent_lengths[commander_id] == self.result_lengths[commander_id]:
-                self.send_message({"message": "rendered"}, commander_socket)
-                print(f"[INFO] All results are Rendered for commander {commander_id}")
-                # zip only the results folder
-                os.chdir(f"server_blend_files/{commander_id}")
-
-                os.system(f"zip -r results.zip ./results")
-                # send the zip file
-                f = open("results.zip", "rb")
-                file = f.read()
-                f.close()
-                message = {
-                    "file_name": "results.zip",
-                    "file": base64.b64encode(file).decode('utf-8'),
-                    }
-                self.send_message(message, commander_socket)
-                print(f"[INFO] Results sent to commander {commander_id}")
-                self.commander_status[commander_id] = "idle"
-
-    def worker_health_check(self):
-        while True:
-            worker_ids = list(self.workers.keys())
-            for worker_id in worker_ids:
-                file_no = self.workers[worker_id][0].fileno()
-                if file_no == -1:
-                    self.workers.pop(worker_id)
-                    self.worker_status.pop(worker_id)
-                    if worker_id in self.assigned_tasks:
-                        self.message_queue.put(self.assigned_tasks[worker_id])
-                        self.assigned_tasks.pop(worker_id)
-                    print(f"[INFO] Worker {worker_id} disconnected from server")
-                else:
-                    print(f"[INFO] Worker {worker_id} health check passed with file no {file_no}")
-            time.sleep(1)
-                
+            model_ids = list(self.models.keys())
+            for model_id in model_ids:
+                if self.model_training[model_id] == N_CHUNKS:
+                    commander_socket, commander_address = self.commanders[model_id]
+                    self.send_model_params(self.models[model_id], commander_socket)
 
     def handle_worker_send(self, worker_socket, worker_id):
         while True:
@@ -133,12 +89,34 @@ class Server:
             # self.lock.acquire()
             if not self.message_queue.empty():
                 message = self.message_queue.get()
-                # print(f"[INFO] Message removed from message queue")
-                self.assigned_tasks[worker_id] = message
-                self.send_message(message, worker_socket)
                 self.worker_status[worker_id] = "busy"
-                # print(f"[INFO] Message sent to worker {worker_address}")
-                self.handle_worker_receive(worker_socket, worker_id, message["commander_id"], message["message"]["start_frame"], message["message"]["end_frame"])
+
+                X, y, epochs = message["message"]["X"], message["message"]["y"], message["message"]["epochs"]
+                commander_id = message["commander_id"]
+
+                model = self.models[commander_id]
+                self.send_model(model, worker_socket)
+
+                self.send_data(X, y, epochs, worker_socket)
+
+                for i in range(epochs):
+                    self.send_model_params(model, worker_socket)
+                    gradients = self.receive_gradient(worker_socket)
+                    print(gradients[0].dtype)
+                    with self.model_lock:
+                        model = self.models[commander_id]
+                        optimizer = model.optimizer
+                        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+                        self.models[commander_id] = model
+
+                    self.send_model_params(model, worker_socket)
+
+                self.model_training[commander_id] += 1
+                self.worker_status[worker_id] = "idle"
+
+
+
+                # self.handle_worker_receive(worker_socket, worker_id, message["commander_id"], message["message"]["start_frame"], message["message"]["end_frame"])
             # self.lock.release()
 
     def handle_worker_receive(self, worker_socket, worker_id, commander_id, start_frame, end_frame):
@@ -167,21 +145,33 @@ class Server:
         print(f"[INFO] Commander {commander_id} connected to server")
 
         while True:
+            if not self.commander_status[commander_id]:
+                break
             if self.commander_status[commander_id] == "busy":
                 continue
 
             model = self.receive_model(commander_socket)
-            X, y = self.receive_data(commander_socket)
-            print(f"[INFO] Model and data received from commander {commander_id}")
-            print(model.summary())
-            print(X.shape)
-            print(y.shape)
-            # print(f"[INFO] Model parameters received from commander {commander_id}")
+            model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+            self.models[commander_id] = model
+            self.model_training[commander_id] = 0
+            print(f"[INFO] Model received from commander {commander_id}")
+            X, y, epochs = self.receive_data(commander_socket)
+            print(f"[INFO] Data received from commander {commander_id}")
+            self.commander_status[commander_id] = "busy"
 
+            n_chunks = N_CHUNKS  # len(self.workers)
+            chunk_size = int(X.shape[0] / n_chunks)
 
-            model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-            model.fit(X, y, epochs=10, batch_size=32)
-            print(f"[INFO] Model trained for commander {commander_id}")
+            for i in range(n_chunks):
+                x = X[i * chunk_size: (i + 1) * chunk_size]
+                y_ = y[i * chunk_size: (i + 1) * chunk_size]
+                message = {
+                    "X" : x,
+                    "y" : y_,
+                    "epochs" : epochs,
+                }
+                self.add_message_to_queue(message, commander_id, i)
+
 
                 
                 
@@ -195,8 +185,8 @@ class Server:
                 "message_type": "task",
                 "chunk_number": index
             }
-        # self.message_queue.put(message_received)
-        self.all_messages[commander_id].put(message_received)
+        self.message_queue.put(message_received)
+        # self.all_messages[commander_id].put(message_received)
         print(f"[INFO] Message added to message queue")
         # print(self.all_messages)
         # print(f"[INFO] Message added to message queue")
@@ -239,6 +229,7 @@ class Server:
 
         except socket.error as e:
             print(f"[ERROR] Failed to receive message: {e}")
+            connection.close()
             return None
 
     def send_message(self, message, conn, max_retries=3, retry_interval=1):
@@ -268,6 +259,41 @@ class Server:
         model.set_weights(model_params)
         return model
     
+    def send_model(self, model, conn):
+        model_architecture = model.to_json()
+        model_params = model.get_weights()
+        model_params_list = [param.tolist() for param in model_params]
+        model_params_json = json.dumps(model_params_list)
+        message = {
+            "model_architecture": model_architecture,
+            "model_params": model_params_json
+        }
+        self.send_message(message, conn)
+
+    def send_model_params(self, model, conn):
+        model_params = model.get_weights()
+        model_params_json = json.dumps([param.tolist() for param in model_params])
+        message = {
+            "model_params": model_params_json
+        }
+        self.send_message(message, conn)
+    
+    def send_data(self, X, y, epochs, conn):
+        X_shape = X.shape
+        y_shape = y.shape
+        X = np.array(X, dtype=np.float32)
+        y = np.array(y, dtype=np.float32)
+        X = X.tobytes()
+        y = y.tobytes()
+        message = {
+            "X": base64.b64encode(X).decode('utf-8'),
+            "X_shape": X_shape,
+            "y": base64.b64encode(y).decode('utf-8'),
+            "y_shape": y_shape,
+            "epochs": epochs
+        }
+        self.send_message(message, conn)
+
     def receive_data(self, conn):
         message = self.receive_message(conn)
         X = base64.b64decode(message["X"])
@@ -277,8 +303,17 @@ class Server:
         X_shape = message["X_shape"]
         y_shape = message["y_shape"]
         X = X.reshape(X_shape)
-        y = y.reshape(y_shape)
-        return X, y
+        y = y.reshape(y_shape).reshape((-1,1))
+        epochs = message["epochs"]
+        return X, y, epochs
+    
+    def receive_gradient(self, conn):
+        message = self.receive_message(conn)
+        gradients_json = message["gradients"]
+        gradients_list = json.loads(gradients_json)
+        gradients = [np.array(gradient) for gradient in gradients_list]
+        gradients = [tf.cast(gradient, dtype=tf.float32) for gradient in gradients]
+        return gradients
 
     def send_ack(self, conn, message="ACK"):
         try:

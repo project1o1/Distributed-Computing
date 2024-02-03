@@ -135,7 +135,7 @@ class Client:
         self.send_message(message)
         print(f"[INFO] Model sent to server")
 
-    def send_data(self, X, y):
+    def send_data(self, X, y, epochs):
         X_shape = X.shape
         y_shape = y.shape
         X = np.array(X, dtype=np.float32)
@@ -146,7 +146,8 @@ class Client:
             "X": base64.b64encode(X).decode('utf-8'),
             "X_shape": X_shape,
             "y": base64.b64encode(y).decode('utf-8'),
-            "y_shape": y_shape
+            "y_shape": y_shape,
+            "epochs": epochs
         }
         self.send_message(message)
         print(f"[INFO] Data sent to server")
@@ -160,3 +161,31 @@ class Client:
         model.set_weights(model_params)
         print(f"[INFO] Model received from server")
         return model
+    
+    def receive_data(self):
+        message = self.receive_message()
+        X = base64.b64decode(message["X"])
+        y = base64.b64decode(message["y"])
+        X = np.frombuffer(X, dtype=np.float32)
+        y = np.frombuffer(y, dtype=np.float32)
+        X_shape = message["X_shape"]
+        y_shape = message["y_shape"]
+        X = X.reshape(X_shape)
+        y = y.reshape(y_shape).reshape((-1,1))
+        epochs = message["epochs"]
+        return X, y, epochs
+    
+    def receive_model_params(self):
+        message = self.receive_message()
+        model_params_json = message["model_params"]
+        model_params = [np.array(param) for param in json.loads(model_params_json)]
+        print(f"[INFO] Model parameters received from server")
+        return model_params
+    
+    def send_gradient(self, gradients):
+        gradients_json = json.dumps([gradient.numpy().tolist() for gradient in gradients])
+        message = {
+            "gradients": gradients_json
+        }
+        self.send_message(message)
+        print(f"[INFO] Gradients sent to server")

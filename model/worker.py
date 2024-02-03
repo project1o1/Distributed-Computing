@@ -2,9 +2,8 @@ from client import Client
 from constants import PORT
 import os
 import base64
-import subprocess
-import threading
 import time
+import tensorflow as tf
 
 blender_path = "C:/Program Files/Blender Foundation/Blender 4.0/blender.exe"
 output_format = "PNG"
@@ -32,89 +31,25 @@ class Worker(Client):
     
     def start_task_loop(self):
         while True:
-            message = self.receive_message()
-            if message is None:
-                break
-            print("[INFO] Blender file received")
-            # print(f"[INFO] Message received: {message}")
-            task = message["message"]
-            task_id = task["task_id"]
-            file_name = task["file_name"]
-            file = task["file"]
-            file = base64.b64decode(file)
-            start_frame = task["start_frame"]
-            end_frame = task["end_frame"]
-            # create folder
-            folder_name = f"worker_blend_files/{self.ID}"
-            if not os.path.exists(folder_name):
-                os.mkdir(folder_name)
-            
-            print(f"[INFO] Received task {task_id} with file {file_name} from frame {start_frame} to {end_frame}")
-            # print(task)
-            # write file
-            f = open(f"{folder_name}/{file_name}", "wb")
-            f.write(file)
-            f.close()
-            print(f"[INFO] File {file_name} written to {folder_name}")          
+            model = self.receive_model()
+            data = self.receive_data()
+            X, y, epochs = data
 
-            
-            # self.send_ack()
-            
-            # execute blender
-            # output_path = os.path.join(folder_name, f'frame_{frame_num:04d}')
-            folder_name = os.path.abspath(folder_name)
-            folder_name = folder_name.replace("\\", "/")
-            if not os.path.exists(folder_name+"/images"):
-                os.mkdir(folder_name+"/images")
-            # command = f'{blender_path} -b {folder_name}/{file_name} -o {folder_name}/images/ -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a'
-            image_thread = threading.Thread(target=self.send_images, args=(folder_name, start_frame, end_frame))
-            image_thread.start()
-            # subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=False)
-            command = [
-                blender_path,
-                '-b', f'{folder_name}/{file_name}',
-                '-o', f'{folder_name}/images/',
-                '-F', output_format,
-                '-x', '1',
-                '-s', str(start_frame),
-                '-e', str(end_frame),
-                '-a'
-            ]
-            subprocess.Popen(command, shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            image_thread.join()
-            # shutil.rmtree(f"{folder_name}/images")
-            # stdout, stderr = process.communicate()
-            
-    def send_images(self, folder_name, start_frame, end_frame):
-        i=0
-        while i < end_frame-start_frame+1:
-            images = os.listdir(folder_name+"/images/")
-            if len(images) == 0:
-                time.sleep(1)
-                continue
-            try:
-                f = open(f"{folder_name}/images/{images[0]}", "rb")
-            except:
-                time.sleep(1)
-                continue
-            file = f.read()
-            f.close()
-            try:
-                os.remove(f"{folder_name}/images/{images[0]}")
-            except:
-                time.sleep(1)
-                continue
-            self.send_message({
-                "frame": base64.b64encode(file).decode('utf-8'),
-                # "frame_num": int(images[0])+start_frame
-                "frame_num": int(images[0].split(".")[0])
-            })
-            print(f"[INFO] Sent frame {int(images[0].split('.')[0])}")
-            i+=1
-        # os.remove(f"{folder_name}/images/{images[0]}")
-        # os.rmdir(f"{folder_name}/images")
-            
-        
+            # print(model.summary())
+
+            for i in range(epochs):
+                model_params = self.receive_model_params()
+                model.set_weights(model_params)
+                with tf.GradientTape() as tape:
+                    y_pred = model(X, training=True)
+                    loss = tf.keras.losses.binary_crossentropy(y, y_pred)
+                # print(f"[INFO] Epoch {i+1}: Loss = {loss}")
+                gradients = tape.gradient(loss, model.trainable_variables)
+                print(gradients[0].dtype)
+                self.send_gradient(gradients)
+                model_params = self.receive_model_params()
+                model.set_weights(model_params)
+                   
 
 if __name__ == "__main__":
     w = Worker("127.0.0.1", PORT)
