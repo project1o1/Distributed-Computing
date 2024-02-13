@@ -1,41 +1,29 @@
-client/__pycache__
-server/__pycache__
-test
+client frontend/logs
+client frontend/*.log
+client frontend/npm-debug.log*
+client frontend/yarn-debug.log*
+client frontend/yarn-error.log*
+client frontend/pnpm-debug.log*
+client frontend/lerna-debug.log*
+client frontend/node_modules
+client frontend/dist
+client frontend/dist-ssr
+client frontend/*.local
+client frontend/.vscode/*
+client frontend/!.vscode/extensions.json
+client frontend/.idea
+client frontend/.DS_Store
+client frontend/*.suo
+client frontend/*.ntvs*
+client frontend/*.njsproj
+client frontend/*.sln
+client frontend/*.sw?
 
-web/backend/server_blend_files
-web/backend/worker_blend_files
-web/backend/blender_output
-web/backend/commander_output
 
-server/server_blend_files
-server/worker_blend_files
-server/blender_output
-server/commander_output
-
-client/server_blend_files
-client/worker_blend_files
-client/blender_output
-client/commander_output
+client backend/.env
+client backend/.env.local
 
 
-# Logs
-web/client/logs
-web/client/*.log
-web/client/npm-debug.log*
-web/client/yarn-debug.log*
-web/client/yarn-error.log*
-web/client/pnpm-debug.log*
-web/client/lerna-debug.log*
-web/client/node_modules
-web/client/dist
-web/client/dist-ssr
-web/client/*.local
-web/client/.vscode/*
-web/client/!.vscode/extensions.json
-web/client/.idea
-web/client/.DS_Store
-web/client/*.suo
-web/client/*.ntvs*
-web/client/*.njsproj
-web/client/*.sln
-web/client/*.sw?
+load balancer/server_blend_files
+worker/worker_blend_files
+client backend/commander_output
