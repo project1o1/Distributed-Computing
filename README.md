@@ -15,6 +15,9 @@ frames, which decreases the rendering time drastically(30 times faster in this c
 - This can also be implemented for training deep neural networks, which brings down the
 training time from multiple days to few hours.
 
+### Demo
+![Video Link](https://www.youtube.com/watch?v=OpQKDA0wxUs&ab_channel=VishalSai)
+
 ### Architecture
 
 ![Architecture](https://i.imgur.com/I50BdUt.png)
