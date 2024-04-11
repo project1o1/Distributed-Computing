@@ -16,7 +16,7 @@ frames, which decreases the rendering time drastically(30 times faster in this c
 training time from multiple days to few hours.
 
 ### Demo
-![Video Link](https://www.youtube.com/watch?v=OpQKDA0wxUs&ab_channel=VishalSai)
+[Video Link](https://www.youtube.com/watch?v=OpQKDA0wxUs&ab_channel=VishalSai)
 
 ### Architecture
 
