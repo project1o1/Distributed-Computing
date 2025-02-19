@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import "../styles/Home.css";
 import Renders from "./Renders";
+import variables from "../config";
 
-const backendUrl = "http://10.8.24.31:3000";
+const backendUrl = "http://"+variables.BACKEND_URL;
 
 function Home() {
   const [uploaded, setUploaded] = useState(false);

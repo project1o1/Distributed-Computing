@@ -76,7 +76,7 @@ class Server:
             self.commander_status[commander_id] = "busy"
             commander_socket, commander_address = self.commanders[commander_id]
 
-            output_folder = f"server_blend_files/{commander_id}/results"
+            output_folder = f"./server_blend_files/{commander_id}/results"
             if not os.path.exists(output_folder):
                 os.mkdir(output_folder)
             frame_num = result["frame_num"]
@@ -92,7 +92,7 @@ class Server:
                 self.send_message({"message": "rendered"}, commander_socket)
                 print(f"[INFO] All results are Rendered for commander {commander_id}")
                 # zip only the results folder
-                os.chdir(f"server_blend_files/{commander_id}")
+                os.chdir(f"./server_blend_files/{commander_id}")
 
                 os.system(f"zip -r results.zip ./results")
 
@@ -183,12 +183,12 @@ class Server:
             input_file = base64.b64decode(input_file)
             file_name = message["file_name"]
             #create folder
-            if not os.path.exists('server_blend_files'):
-                os.makedirs('server_blend_files')
-            if not os.path.exists(f'server_blend_files/{commander_id}'):
-                os.makedirs(f'server_blend_files/{commander_id}')
+            if not os.path.exists('./server_blend_files'):
+                os.makedirs('./server_blend_files')
+            if not os.path.exists(f'./server_blend_files/{commander_id}'):
+                os.makedirs(f'./server_blend_files/{commander_id}')
             #save file
-            f = open(f"server_blend_files/{commander_id}/{file_name}", "wb")
+            f = open(f"./server_blend_files/{commander_id}/{file_name}", "wb")
             f.write(input_file)
             f.close()
             print(f"[INFO] File received from commander {commander_id}")

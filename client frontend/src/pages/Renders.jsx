@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/clerk-react";
 import PropTypes from "prop-types";
+import variables from "../config";
 
 import axios from "axios";
-const backendUrl = "http://10.8.24.31:3000";
+const backendUrl = "http://"+variables.BACKEND_URL;
 
 function Renders({ commander_id }) {
   const [userId, setUserId] = useState("");
@@ -106,7 +107,7 @@ function Renders({ commander_id }) {
 
     useEffect(() => {
       console.log(commander_id);
-      const socket = new WebSocket(`ws://10.8.24.31:3000/ws/${commander_id}`);
+      const socket = new WebSocket(`ws://${variables.BACKEND_URL}/ws/${commander_id}`);
       setWs(socket);
       // return () => {
       //   socket.close();
@@ -155,19 +156,19 @@ function Renders({ commander_id }) {
 
   const renderList = renders.map((render) => {
     return (
-      <div key={render[1]} className="render_item">
+      <div key={render[2]} className="render_item">
         <div className="render_info">
-          <h3>Project Name : {render[3]}</h3>
-          <p>Number of Frames : {render[2]}</p>
+          <h3>Project Name : {render[4]}</h3>
+          <p>Number of Frames : {render[3]}</p>
           {/* <p>Frames Per Second : {render}</p> */}
-          <p>Status : {render[4]}</p>
+          <p>Status : {render[5]}</p>
         </div>
         <div className="render_buttons">
-          <button onClick={() => handleDownload(render[1])} className="btn1">
+          <button onClick={() => handleDownload(render[2])} className="btn1">
             Download Frames(Zip)
           </button>
           <button
-            onClick={() => handleDownloadVideo(render[1])}
+            onClick={() => handleDownloadVideo(render[2])}
             className="btn2"
           >
             Download Video(mp4)

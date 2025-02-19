@@ -1,3 +1,6 @@
 nanoid
 socket
 uvicorn
+fastapi
+uvicorn
+mysql-connector-python

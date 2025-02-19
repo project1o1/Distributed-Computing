@@ -20,10 +20,9 @@ import mysql.connector
 db_config = {
     'host': 'localhost',
     'user': 'pavan',
-    'password': 'Vishalsai@123',
-    'database': 'hackdata'
+    'password': 'pavan@123',
+    'database': 'okayii'
 }
-
 
 
 app = FastAPI()
@@ -62,7 +61,7 @@ class Commander(Client):
         print(f"[INFO] File sent to server")
 
 
-        output_folder = "commander_output"
+        output_folder = "./commander_output"
         if not os.path.exists(output_folder):
             os.mkdir(output_folder)
         
@@ -146,7 +145,7 @@ async def upload_file(
     try:
         file_content = await file.read()
 
-        c = Commander("10.8.23.226", PORT)
+        c = Commander("localhost", PORT)
         id = c.ID
         is_rendered[id] = False
         connection = mysql.connector.connect(**db_config)

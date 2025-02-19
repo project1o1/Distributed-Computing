@@ -7,7 +7,8 @@ import threading
 import time
 import shutil
 
-blender_path = "C:/Program Files/Blender Foundation/Blender 4.0/blender.exe"
+# Blender path for Mac
+blender_path = "/Applications/Blender.app/Contents/MacOS/Blender"
 output_format = "PNG"
 
 class Worker(Client):
@@ -15,7 +16,7 @@ class Worker(Client):
         super().__init__(IP, port)
         self.type = "worker"
         self.socket.connect((self.IP, self.port))
-        
+
         if not os.path.exists("worker_blend_files"):
             os.mkdir("worker_blend_files")
 
@@ -24,100 +25,92 @@ class Worker(Client):
         print(f"[INFO] Client {self.ID} connected to server")
         self.start_task_loop()
 
-    def start_message_loop(self):
-        while True:
-            user_input = input("Enter message to send (or type 'exit' to quit): ")
-            if user_input.lower() == 'exit':
-                break
-            self.send_message(user_input)
-    
     def start_task_loop(self):
         while True:
+            print("[DEBUG] Waiting for task...")
             message = self.receive_message()
             if message is None:
+                print("[ERROR] No message received. Exiting worker loop.")
                 break
+
             print("[INFO] Blender file received")
-            # print(f"[INFO] Message received: {message}")
+
             task = message["message"]
             task_id = task["task_id"]
             file_name = task["file_name"]
-            file = task["file"]
-            file = base64.b64decode(file)
+            file = base64.b64decode(task["file"])
             start_frame = task["start_frame"]
             end_frame = task["end_frame"]
             fps = task["fps"]
-            # create folder
-            folder_name = f"worker_blend_files/{self.ID}"
-            if not os.path.exists(folder_name):
-                os.mkdir(folder_name)
-            
-            print(f"[INFO] Received task {task_id} with file {file_name} from frame {start_frame} to {end_frame}")
-            # print(task)
-            # write file
-            f = open(f"{folder_name}/{file_name}", "wb")
-            f.write(file)
-            f.close()
-            print(f"[INFO] File {file_name} written to {folder_name}")          
 
-            
-            # self.send_ack()
-            
-            # execute blender
-            # output_path = os.path.join(folder_name, f'frame_{frame_num:04d}')
-            folder_name = os.path.abspath(folder_name)
-            folder_name = folder_name.replace("\\", "/")
-            if not os.path.exists(folder_name+"/images"):
-                os.mkdir(folder_name+"/images")
-            # command = f'{blender_path} -b {folder_name}/{file_name} -o {folder_name}/images/ -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a'
-            image_thread = threading.Thread(target=self.send_images, args=(folder_name, start_frame, end_frame, fps))
+            # Create worker folder
+            folder_name = os.path.abspath(f"worker_blend_files/{self.ID}")
+            os.makedirs(folder_name, exist_ok=True)
+
+            print(f"[INFO] Received task {task_id} with file {file_name} from frame {start_frame} to {end_frame}")
+
+            # Save Blender file
+            file_path = os.path.join(folder_name, file_name)
+            with open(file_path, "wb") as f:
+                f.write(file)
+            print(f"[INFO] File {file_name} written to {folder_name}")
+
+            # Ensure images directory exists
+            images_folder = os.path.join(folder_name, "images")
+            os.makedirs(images_folder, exist_ok=True)
+
+            # Start thread to send images while rendering
+            image_thread = threading.Thread(target=self.send_images, args=(images_folder, start_frame, end_frame, fps))
             image_thread.start()
-            # subprocess.call(f'"{blender_path}" -b "{folder_name}/{file_name}" -o "{folder_name}/images/" -F {output_format} -x 1 -s {start_frame} -e {end_frame} -a', shell=False)
+
+            # Run Blender rendering command
+            log_file = os.path.join(folder_name, "blender_log.txt")
             command = [
                 blender_path,
-                '-b', f'{folder_name}/{file_name}',
-                '-o', f'{folder_name}/images/',
-                '-F', output_format,
-                '-x', '1',
-                '-s', str(start_frame),
-                '-e', str(end_frame),
-                '-a'
+                "-b", file_path,
+                "-o", os.path.join(images_folder, ""),
+                "-F", output_format,
+                "-x", "1",
+                "-s", str(start_frame),
+                "-e", str(end_frame),
+                "-a"
             ]
-            subprocess.Popen(command, shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print(f"[DEBUG] Running command: {' '.join(command)}")
+
+            # Run Blender and capture output
+            with open(log_file, "w") as log:
+                result = subprocess.run(command, stdout=log, stderr=log, text=True)
+
+            # Print result if Blender failed
+            if result.returncode != 0:
+                print(f"[ERROR] Blender process failed. Check log file at {log_file}")
+
             image_thread.join()
-            # shutil.rmtree(f"{folder_name}/images")
-            # stdout, stderr = process.communicate()
-            
+            print(f"[INFO] Task {task_id} completed.")
+
     def send_images(self, folder_name, start_frame, end_frame, fps):
-        i=0
-        while i < end_frame-start_frame+1:
-            images = os.listdir(folder_name+"/images/")
-            if len(images) == 0:
-                time.sleep(1)
+        i = 0
+        while i < (end_frame - start_frame + 1):
+            images = sorted(os.listdir(folder_name))  # Ensure correct frame order
+            if not images:
+                time.sleep(2)  # Increased sleep time to avoid excessive CPU usage
                 continue
             try:
-                f = open(f"{folder_name}/images/{images[0]}", "rb")
-            except:
-                time.sleep(1)
+                file_path = os.path.join(folder_name, images[0])
+                with open(file_path, "rb") as f:
+                    file_data = f.read()
+                os.remove(file_path)
+            except FileNotFoundError:
+                time.sleep(2)
                 continue
-            file = f.read()
-            f.close()
-            try:
-                os.remove(f"{folder_name}/images/{images[0]}")
-            except:
-                time.sleep(1)
-                continue
+
             self.send_message({
-                "frame": base64.b64encode(file).decode('utf-8'),
-                # "frame_num": int(images[0])+start_frame
+                "frame": base64.b64encode(file_data).decode("utf-8"),
                 "frame_num": int(images[0].split(".")[0]),
                 "fps": fps
             })
             print(f"[INFO] Sent frame {int(images[0].split('.')[0])}")
-            i+=1
-        # os.remove(f"{folder_name}/images/{images[0]}")
-        # os.rmdir(f"{folder_name}/images")
-            
-        
+            i += 1
 
 if __name__ == "__main__":
     w = Worker("127.0.0.1", PORT)
